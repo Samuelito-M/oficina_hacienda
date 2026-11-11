@@ -5,6 +5,7 @@ import pdfjs from './lib/pdfjs.js';
 import Acuerdos from './tabs/Acuerdos.jsx';
 import Casas from './tabs/Casas.jsx';
 import Menu from './tabs/Menu.jsx';
+import Ninos from './tabs/Ninos.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
 import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acuerdos.js';
 import { generarCambiosDeCasa } from './lib/casas.js';
@@ -13,9 +14,9 @@ import { cargarPersonal, guardarPersonal, fusionarPersonas } from './lib/persona
 import { descargar, abrirPdf, extension, leerBytes, MIME, nombreSeguro } from './lib/archivos.js';
 import { MESES, fechaCorta } from './lib/text.js';
 
-const TABS = ['acuerdos', 'casas', 'menu'];
+const TABS = ['acuerdos', 'casas', 'menu', 'ninos'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.0';
+const VERSION = '1.1';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -225,14 +226,15 @@ export default function App() {
             </div>
             <div>
               <h1>Hacienda of Hope</h1>
-              <p>Oficina · acuerdos, cambios de casa y menú</p>
+              <p>Oficina · acuerdos, cambios de casa, menú y niños</p>
             </div>
           </div>
           <nav aria-label="Herramientas">
             {[
               ['acuerdos', 'Acuerdos'],
               ['casas', 'Cambio de casa'],
-              ['menu', 'Menú']
+              ['menu', 'Menú'],
+              ['ninos', 'Niños']
             ].map(([k, l]) => (
               <a key={k} href={`#${k}`} id={`tab-${k}`} aria-current={tab === k ? 'page' : undefined}>
                 {l}
@@ -267,6 +269,7 @@ export default function App() {
           />
         )}
         {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onPdf={onPdf} generando={generando === 'pdf'} />}
+        {tab === 'ninos' && <Ninos />}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">
@@ -274,7 +277,7 @@ export default function App() {
               <rect x="5" y="11" width="14" height="9" rx="2" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
-            Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet. <span className="ver">Versión {VERSION}</span>
+            {tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
           </p>
         </div>
       </main>

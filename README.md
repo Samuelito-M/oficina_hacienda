@@ -1,12 +1,13 @@
 # Oficina Hacienda
 
-App para la oficina de Hacienda of Hope. Hace tres cosas:
+App para la oficina de Hacienda of Hope. Hace cuatro cosas:
 
 1. **Acuerdos de fin de semana**: lee el horario del mes (PDF) y el Word de acuerdos del mes pasado, y arma el Word nuevo.
 2. **Cambio de casa**: con el mismo horario arma las hojas de cambio de casa de cada fin de semana, en PDF.
 3. **Menú del nutricionista**: limpia el Excel del menú (quita cantidades, pone bebida en las cenas, corrige ortografía).
+4. **Niños**: lista de los niños con cumpleaños, edad, talla de ropa y talla de zapatos. Tiene clave y los datos viven en una hoja de Google de Hacienda.
 
-Todo pasa en el navegador. Los archivos no se suben a ningún servidor y funciona sin internet.
+Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben a ningún servidor y funcionan sin internet. Niños necesita internet y la clave.
 
 ## Usarla
 
@@ -31,6 +32,20 @@ Todo pasa en el navegador. Los archivos no se suben a ningún servidor y funcion
 1. Sube el Excel del menú.
 2. Revisa la tabla (botón "Como llegó" para comparar) y las celdas para revisar.
 3. Descarga el Excel limpio.
+
+## Configurar la sección Niños (una sola vez)
+
+1. Con la cuenta de Google de Hacienda, crea una hoja de cálculo nueva, por ejemplo "Niños Hacienda".
+2. En la hoja, ve a **Extensiones → Apps Script**.
+3. Borra lo que aparece y pega todo el contenido de `google/Code.gs`. Guarda.
+4. Arriba, en la lista de funciones, elige `prepararHoja` y dale **Ejecutar**. Acepta los permisos (Revisar permisos → tu cuenta → Configuración avanzada → Ir al proyecto → Permitir). Se crea la pestaña "Ninos".
+5. A la izquierda, en **Configuración del proyecto** (engranaje), baja a **Propiedades de la secuencia de comandos** → **Agregar propiedad**. Nombre: `CLAVE`. Valor: la clave que quieras. Guarda.
+6. Arriba a la derecha: **Implementar → Nueva implementación**. Tipo: **Aplicación web**. Ejecutar como: **Yo**. Quién tiene acceso: **Cualquier persona**. Dale Implementar y copia la dirección que termina en `/exec`.
+7. En la app, pestaña **Niños**, pega esa dirección, escribe la clave y entra.
+
+Para cambiar la clave, edita la propiedad `CLAVE` (paso 5). No hay que volver a implementar. Todos los dispositivos tendrán que escribir la clave nueva.
+
+La dirección `/exec` sola no muestra nada: sin la clave correcta no devuelve datos, y después de varios intentos fallidos se bloquea 15 minutos. Comparte la hoja de Google solo con quien la necesite, porque quien tenga acceso a la hoja ve los datos directamente.
 
 ## Qué necesita cada archivo
 
@@ -65,4 +80,6 @@ Carpetas principales:
 - `src/lib/casas.js`: arma el PDF de cambio de casa.
 - `src/lib/menu.js` y `src/lib/menuLimpieza.js`: leen, limpian y arman el Excel.
 - `src/lib/personal.js`: lista base del personal, fijos y padres de casa.
-- `src/tabs/`: las tres pantallas.
+- `src/lib/ninos.js`: conexión con la hoja de Google, fechas, edades e importación de Excel.
+- `google/Code.gs`: el código que va en Apps Script (clave, sesiones de 30 días y datos de los niños).
+- `src/tabs/`: las cuatro pantallas.
