@@ -2,10 +2,10 @@
 
 App para la oficina de Hacienda of Hope. Hace cuatro cosas:
 
-1. **Acuerdos de fin de semana**: lee el horario del mes (PDF) y el Word de acuerdos del mes pasado, y arma el Word nuevo.
+1. **Acuerdos de fin de semana**: lee el horario del mes (PDF o Excel) y el Word de acuerdos del mes pasado, y arma el Word nuevo y un Excel de pagos para contabilidad.
 2. **Cambio de casa**: con el mismo horario arma las hojas de cambio de casa de cada fin de semana, en PDF.
 3. **Menú del nutricionista**: limpia el Excel del menú (quita cantidades, pone bebida en las cenas, corrige ortografía).
-4. **Niños**: lista de los niños con cumpleaños, edad, talla de ropa y talla de zapatos. Tiene clave y los datos viven en una hoja de Google de Hacienda.
+4. **Niños**: lista de los niños con foto, cumpleaños, edad y tallas. Tiene clave y los datos viven en una hoja de Google de Hacienda. Desde ahí salen el resumen de tallas, las hojas de regalos, el directorio, los cumpleaños del mes y la lista en PDF o Excel.
 
 Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben a ningún servidor y funcionan sin internet. Niños necesita internet y la clave.
 
@@ -18,11 +18,11 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 ## Cada mes
 
 **Acuerdos**
-1. Sube el horario del mes en PDF.
+1. Sube el horario del mes en PDF o Excel.
 2. Sube el Word de acuerdos del mes pasado (el que descargaste de la app el mes anterior).
 3. Revisa los fines de semana. Los fijos ya vienen marcados. Toca un nombre para agregar o quitar extras.
 4. Si sale un aviso de nombre desconocido, dile a la app quién es. Lo recuerda para siempre.
-5. Descarga el Word.
+5. Descarga el Word. Con **Excel de pagos** sale el resumen por persona y el detalle para contabilidad.
 
 **Cambio de casa**
 1. Usa el mismo horario (si ya lo subiste en Acuerdos, aparece solo).
@@ -43,13 +43,15 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 6. Arriba a la derecha: **Implementar → Nueva implementación**. Tipo: **Aplicación web**. Ejecutar como: **Yo**. Quién tiene acceso: **Cualquier persona**. Dale Implementar y copia la dirección que termina en `/exec`.
 7. En la app, pestaña **Niños**, pega esa dirección, escribe la clave y entra.
 
+**Actualizar el código de Google** (cuando la app diga "Falta actualizar el código de Google"): abre Apps Script, borra todo, pega el `google/Code.gs` nuevo y guarda. Ejecuta `prepararHoja` una vez. Luego **Implementar → Administrar implementaciones → lápiz → Versión: Nueva versión → Implementar**. La dirección `/exec` no cambia y los datos no se pierden.
+
 Para cambiar la clave, edita la propiedad `CLAVE` (paso 5). No hay que volver a implementar. Todos los dispositivos tendrán que escribir la clave nueva.
 
 La dirección `/exec` sola no muestra nada: sin la clave correcta no devuelve datos, y después de varios intentos fallidos se bloquea 15 minutos. Comparte la hoja de Google solo con quien la necesite, porque quien tenga acceso a la hoja ve los datos directamente.
 
 ## Qué necesita cada archivo
 
-- **Horario**: un PDF de una página con el calendario. Arriba debe decir el mes y el año ("Octubre 2026"). Cada día con líneas tipo "Casa 1: Miguel y Pa" y "On Call: Jauna". Lo que esté entre paréntesis se ignora.
+- **Horario**: un PDF de una página con el calendario, o el Excel del horario (con "Horario NOVIEMBRE 2026" arriba). Arriba debe decir el mes y el año ("Octubre 2026"). Cada día con líneas tipo "Casa 1: Miguel y Pa" y "On Call: Jauna". Lo que esté entre paréntesis se ignora.
 - **Word de acuerdos**: .docx con al menos un "ACUERDO DE TRABAJO" de fin de semana (con líneas "Sábado …" y "Domingo …"). Ese acuerdo se usa de modelo. Los acuerdos que no son fines de semana de este mes ni del mes pasado se dejan al final.
 - **Menú**: .xlsx con la hoja "Meal Planner", una fila con Desayuno, Colación, Almuerzo, Refrigerio y Cena, y los días en la primera columna.
 

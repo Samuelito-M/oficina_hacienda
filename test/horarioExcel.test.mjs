@@ -1,0 +1,13 @@
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import JSZip from 'jszip';
+import fs from 'fs';
+globalThis.DOMParser = DOMParser; globalThis.XMLSerializer = XMLSerializer;
+const { leerGrillaExcel, analizarHorarioExcel } = await import('../src/lib/horarioExcel.js');
+const { PERSONAL_BASE } = await import('../src/lib/personal.js');
+const hojas = await leerGrillaExcel(fs.readFileSync(process.argv[2]), JSZip);
+const h = analizarHorarioExcel(hojas, PERSONAL_BASE, 'HORARIO.xlsx');
+console.log('mes', h.mes + 1, h.anio, 'dias leidos', Object.values(h.dias).filter(Boolean).length);
+for (const f of h.findes) console.log(f.sabado.toDateString(), JSON.stringify(f.casas), 'unk', JSON.stringify(f.desconocidos), f.domingoFuera ? 'DOMFUERA' : '');
+const unk = Object.entries(h.dias).filter(([d, x]) => x && x.desconocidos.length).map(([d, x]) => d + ':' + JSON.stringify(x.desconocidos));
+console.log('dias con desconocidos', unk);
+console.log('d2', h.dias[2]?.texto); console.log('d27', JSON.stringify(h.dias[27]?.casas));

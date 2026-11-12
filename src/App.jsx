@@ -7,7 +7,9 @@ import Casas from './tabs/Casas.jsx';
 import Menu from './tabs/Menu.jsx';
 import Ninos from './tabs/Ninos.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
+import { leerGrillaExcel, analizarHorarioExcel } from './lib/horarioExcel.js';
 import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acuerdos.js';
+import { generarExcelPagos } from './lib/pagos.js';
 import { generarCambiosDeCasa } from './lib/casas.js';
 import { leerMenu, previsualizarMenu, generarMenu, MenuError } from './lib/menu.js';
 import { cargarPersonal, guardarPersonal, fusionarPersonas } from './lib/personal.js';
@@ -16,7 +18,7 @@ import { MESES, fechaCorta } from './lib/text.js';
 
 const TABS = ['acuerdos', 'casas', 'menu', 'ninos'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.1';
+const VERSION = '1.2';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -78,17 +80,17 @@ export default function App() {
 
   const llaveTokens = personal.map((p) => p.id + ':' + (p.alias || []).join(',')).join('|');
   const { analisis, errorAnalisis } = useMemo(() => {
-    if (!horario.pdf) return { analisis: null, errorAnalisis: '' };
+    if (!horario.pdf && !horario.excel) return { analisis: null, errorAnalisis: '' };
     try {
-      return { analisis: analizarHorario(horario.pdf, personal, horario.nombre), errorAnalisis: '' };
+      return { analisis: horario.excel ? analizarHorarioExcel(horario.excel, personal, horario.nombre) : analizarHorario(horario.pdf, personal, horario.nombre), errorAnalisis: '' };
     } catch (e) {
       console.error(e);
       return { analisis: null, errorAnalisis: mensaje(e, 'Este PDF no tiene la forma del horario mensual.') };
     }
-  }, [horario.pdf, horario.nombre, llaveTokens]);
+  }, [horario.pdf, horario.excel, horario.nombre, llaveTokens]);
 
   useEffect(() => {
-    if (!horario.pdf) return;
+    if (!horario.pdf && !horario.excel) return;
     if (analisis) {
       const personas = new Set();
       analisis.findes.forEach((f) => Object.values(f.casas).forEach((ids) => ids.forEach((i) => personas.add(i))));
@@ -97,20 +99,21 @@ export default function App() {
   }, [analisis, errorAnalisis]);
 
   const onHorario = async (file) => {
-    if (extension(file.name) !== 'pdf') {
-      setHorario({ estado: 'error', nombre: file.name, error: 'Aquí va el horario en PDF.' });
+    const ext = extension(file.name);
+    if (ext !== 'pdf' && ext !== 'xlsx') {
+      setHorario({ estado: 'error', nombre: file.name, ext: 'pdf', error: ext === 'xls' ? 'Guárdalo como .xlsx en Excel y vuelve a subirlo.' : 'Aquí va el horario en PDF o en Excel (.xlsx).' });
       return;
     }
-    setHorario({ estado: 'cargando', nombre: file.name });
+    setHorario({ estado: 'cargando', nombre: file.name, ext });
     try {
       const bytes = await leerBytes(file);
-      const pdf = await leerItemsPdf(bytes, pdfjs);
+      const fuente = ext === 'xlsx' ? { excel: await leerGrillaExcel(bytes, JSZip) } : { pdf: await leerItemsPdf(bytes, pdfjs) };
       setOver({});
       setMarcas({});
-      setHorario({ estado: 'cargando', nombre: file.name, pdf });
+      setHorario({ estado: 'cargando', nombre: file.name, ext, ...fuente });
     } catch (e) {
       console.error(e);
-      setHorario({ estado: 'error', nombre: file.name, error: mensaje(e, 'No pude abrir este PDF.') });
+      setHorario({ estado: 'error', nombre: file.name, ext, error: mensaje(e, 'No pude abrir este archivo.') });
     }
   };
 
@@ -152,6 +155,21 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setToast(mensaje(e, 'No pude armar el Word. Prueba otra vez con el Word original del mes pasado.'));
+    } finally {
+      setGenerando('');
+    }
+  };
+
+  const onExcelPagos = async (lista, monto) => {
+    if (!analisis || !lista.length) return;
+    setGenerando('pagos');
+    try {
+      const out = await generarExcelPagos(lista, monto, JSZip);
+      descargar(out, nombreSeguro(`PAGOS ACUERDOS ${MESES[analisis.mes].toUpperCase()} ${analisis.anio}.xlsx`), MIME.xlsx);
+      setToast(`Listo: Excel de pagos con ${lista.length} acuerdos.`);
+    } catch (e) {
+      console.error(e);
+      setToast('No pude armar el Excel de pagos. Intenta otra vez.');
     } finally {
       setGenerando('');
     }
@@ -263,6 +281,8 @@ export default function App() {
             onWord={onWord}
             onDescargar={onDescargarWord}
             generando={generando === 'word'}
+            generandoExcel={generando === 'pagos'}
+            onExcelPagos={onExcelPagos}
             mantener={mantener}
             setMantener={setMantener}
             aviso={aviso}

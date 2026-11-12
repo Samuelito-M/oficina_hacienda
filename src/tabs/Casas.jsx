@@ -120,7 +120,7 @@ export default function Casas({ horario, analisis, errorAnalisis, personal, marc
         <p>Sale del mismo horario de los acuerdos. La app arma las casas de cada fin de semana; ya vienen marcadas las que no tienen a sus padres de casa. Marca o desmarca las que quieras imprimir.</p>
       </div>
       <div className="uploads">
-        <Subir etiqueta="Horario del mes" tipo="pdf" estado={horario} onArchivo={onHorario} ayuda="El mismo PDF que usas en Acuerdos" />
+        <Subir etiqueta="Horario del mes" tipo="horario" estado={horario} onArchivo={onHorario} ayuda="El mismo horario que usas en Acuerdos (PDF o Excel)" />
       </div>
       {errorAnalisis && (
         <div className="alert bad" role="alert">

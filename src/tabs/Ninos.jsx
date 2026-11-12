@@ -2,14 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { CASAS } from '../lib/personal.js';
 import { fold } from '../lib/text.js';
-import { leerBytes, extension, descargar, MIME, nombreSeguro } from '../lib/archivos.js';
-import * as PDFLib from 'pdf-lib';
-import { COLUMNAS, filasExport, generarExcelNinos, generarPdfNinos } from '../lib/exportar.js';
+import { leerBytes, extension } from '../lib/archivos.js';
+import { esVieja } from '../lib/tallas.js';
+import Foto from '../components/ninos/Foto.jsx';
+import Tallas from '../components/ninos/Tallas.jsx';
+import Documentos from '../components/ninos/Documentos.jsx';
+import CasasEditor from '../components/ninos/Casas.jsx';
 import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borrarUrl, llamar, urlValida, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
 
 const normal = (n) => ({ ...n, nacimiento: leerFecha(n.nacimiento) || String(n.nacimiento || '') });
 
-const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', notas: '' };
+const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', notas: '', descripcion: '', colorFavorito: '', pasatiempos: '', deseos: '' };
+const iniciales = (nombre) => String(nombre || '').split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
 function Candado() {
   return (
@@ -82,7 +86,7 @@ function Entrar({ url, onEntrar, mensaje }) {
   );
 }
 
-function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando }) {
+function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, onFoto, onQuitarFoto }) {
   const [n, setN] = useState(inicial);
   const [error, setError] = useState('');
   const [confirmar, setConfirmar] = useState(false);
@@ -100,6 +104,7 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando }) {
       }}
     >
       <h4>{inicial.id ? `Editar a ${inicial.nombre}` : 'Agregar niño'}</h4>
+      <Foto url={foto} iniciales={iniciales(n.nombre)} puede={puedeFoto} guardadoAntes={!!inicial.id} onSubir={onFoto} onQuitar={onQuitarFoto} />
       <div className="ficha-grid">
         <label className="campo span2">
           Nombre y apellido
@@ -131,6 +136,27 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando }) {
           <input id="f-notas" value={n.notas} onChange={set('notas')} placeholder="Opcional" />
         </label>
       </div>
+      <details className="sub" open={!!(n.descripcion || n.colorFavorito || n.pasatiempos || n.deseos)}>
+        <summary>Para las hojas de regalos</summary>
+        <div className="ficha-grid">
+          <label className="campo span4">
+            Sobre el niño
+            <textarea id="f-desc" rows={3} value={n.descripcion} onChange={set('descripcion')} placeholder="Ej. Pablo es un niño alegre que disfruta jugar con sus amigos…" />
+          </label>
+          <label className="campo">
+            Color favorito
+            <input id="f-color" value={n.colorFavorito} onChange={set('colorFavorito')} />
+          </label>
+          <label className="campo">
+            Pasatiempos
+            <input id="f-hobby" value={n.pasatiempos} onChange={set('pasatiempos')} />
+          </label>
+          <label className="campo span2">
+            Deseos
+            <input id="f-deseos" value={n.deseos} onChange={set('deseos')} placeholder="Ej. Pelota, audífonos, libro de dinosaurios" />
+          </label>
+        </div>
+      </details>
       {error && <p className="err-txt">{error}</p>}
       <div className="row-actions">
         <button className="mini solid" disabled={guardando}>
@@ -247,89 +273,6 @@ function Importar({ existentes, onImportar, onCerrar, importando }) {
   );
 }
 
-const K_COLS = 'oficina-hacienda.ninos.columnas';
-
-function leerCols() {
-  try {
-    const c = JSON.parse(localStorage.getItem(K_COLS) || 'null');
-    if (Array.isArray(c)) return c.filter((k) => COLUMNAS.some((x) => x.k === k));
-  } catch {
-    return ['casa', 'cumple', 'edad', 'ropa', 'zapatos'];
-  }
-  return ['casa', 'cumple', 'edad', 'ropa', 'zapatos'];
-}
-
-function Exportar({ lista, filtro, onCerrar }) {
-  const [cols, setCols] = useState(leerCols);
-  const [agrupar, setAgrupar] = useState(true);
-  const [ocupado, setOcupado] = useState('');
-  const [msg, setMsg] = useState('');
-  const cambiar = (k, on) => {
-    const n = COLUMNAS.map((c) => c.k).filter((x) => (x === k ? on : cols.includes(x)));
-    setCols(n);
-    try {
-      localStorage.setItem(K_COLS, JSON.stringify(n));
-    } catch {
-      setMsg('');
-    }
-  };
-  const hoy = new Date();
-  const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-  const base = nombreSeguro(`Niños Hacienda${filtro ? ' - ' + filtro : ''} ${fecha}`);
-  const ir = async (tipo) => {
-    setOcupado(tipo);
-    setMsg('');
-    try {
-      const filas = filasExport(lista, (iso) => edad(iso));
-      if (tipo === 'pdf') {
-        const out = await generarPdfNinos(filas, cols, { subtitulo: filtro, agrupar: agrupar && !(filtro && filtro.startsWith('Casa')) }, PDFLib);
-        descargar(out, `${base}.pdf`, MIME.pdf);
-      } else {
-        const out = await generarExcelNinos(filas, cols, JSZip);
-        descargar(out, `${base}.xlsx`, MIME.xlsx);
-      }
-      setMsg('Listo, revisa tu carpeta de Descargas.');
-    } catch (err) {
-      console.error(err);
-      setMsg('No se pudo armar el archivo. Intenta otra vez.');
-    } finally {
-      setOcupado('');
-    }
-  };
-  return (
-    <div className="ficha">
-      <h4>Descargar lista</h4>
-      <p className="hint">
-        Se descargan los {lista.length} {lista.length === 1 ? 'niño' : 'niños'} que se ven ahora{filtro ? ` (${filtro})` : ''}. El nombre siempre sale. Elige qué más quieres en el documento:
-      </p>
-      <div className="opciones">
-        {COLUMNAS.map((c) => (
-          <label key={c.k} className="opcion">
-            <input type="checkbox" id={`col-${c.k}`} checked={cols.includes(c.k)} onChange={(e) => cambiar(c.k, e.target.checked)} />
-            <span>{c.k === 'cumple' ? 'Fecha de cumpleaños' : c.t}</span>
-          </label>
-        ))}
-      </div>
-      <label className="opcion">
-        <input type="checkbox" id="col-agrupar" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} />
-        <span>En el PDF, separar por casa</span>
-      </label>
-      <div className="row-actions">
-        <button type="button" className="mini solid" disabled={!lista.length || !!ocupado} onClick={() => ir('pdf')}>
-          {ocupado === 'pdf' ? 'Armando…' : 'Descargar PDF'}
-        </button>
-        <button type="button" className="mini solid" disabled={!lista.length || !!ocupado} onClick={() => ir('xlsx')}>
-          {ocupado === 'xlsx' ? 'Armando…' : 'Descargar Excel'}
-        </button>
-        <button type="button" className="mini" onClick={onCerrar}>
-          Cerrar
-        </button>
-      </div>
-      {msg && <p className="hint">{msg}</p>}
-    </div>
-  );
-}
-
 export default function Ninos() {
   const [con, setCon] = useState(leerConexion);
   const [ninos, setNinos] = useState(null);
@@ -341,9 +284,18 @@ export default function Ninos() {
   const [casa, setCasa] = useState('');
   const [orden, setOrden] = useState('casa');
   const [ficha, setFicha] = useState(null);
-  const [importar, setImportar] = useState(false);
-  const [exportar, setExportar] = useState(false);
+  const [panel, setPanel] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [version, setVersion] = useState(2);
+  const [casasData, setCasasData] = useState([]);
+  const [fotos, setFotos] = useState({});
+  const fotosRef = useRef({});
+  const conRef = useRef(con);
+  conRef.current = con;
+  const abrir = (p) => {
+    setPanel(p);
+    if (p !== 'ficha') setFicha(null);
+  };
   const hoy = new Date();
 
   const salirPorSesion = (err) => {
@@ -358,6 +310,8 @@ export default function Ninos() {
     setError('');
     try {
       const r = await llamar(c.url, { accion: 'listar', token: c.token });
+      setVersion(Number(r.version) || 1);
+      setCasasData(Array.isArray(r.casas) ? r.casas : []);
       setNinos(Array.isArray(r.ninos) ? r.ninos.map(normal) : []);
     } catch (err) {
       if (err.codigo === 'sesion') salirPorSesion(err);
@@ -377,13 +331,60 @@ export default function Ninos() {
     try {
       const r = await llamar(con.url, { ...datos, token: con.token });
       await despues(r);
+      return true;
     } catch (err) {
+      if (err.message === 'Acción desconocida.') err.message = 'Esta función necesita el código de Google nuevo. Actualiza Code.gs en Apps Script.';
       if (err.codigo === 'sesion') salirPorSesion(err);
       else setError(err.message || 'No se pudo guardar.');
     } finally {
       setGuardando(false);
     }
   };
+
+  const asegurarFotos = async (ids) => {
+    const faltan = Array.from(new Set(ids)).filter((id) => !(id in fotosRef.current));
+    for (let i = 0; i < faltan.length; i += 20) {
+      const parte = faltan.slice(i, i + 20);
+      const c = conRef.current;
+      const r = await llamar(c.url, { accion: 'fotos', ids: parte, token: c.token });
+      const nuevo = { ...fotosRef.current };
+      for (const id of parte) nuevo[id] = (r.fotos && r.fotos[id]) || '';
+      fotosRef.current = nuevo;
+      setFotos(nuevo);
+    }
+    return fotosRef.current;
+  };
+
+  useEffect(() => {
+    if (!ninos || version < 2) return;
+    const ids = [...ninos.filter((n) => n.conFoto).map((n) => n.id), ...casasData.filter((c) => c.conFoto).map((c) => `casa:${c.casa}`)];
+    if (ids.some((id) => !(id in fotosRef.current)))
+      asegurarFotos(ids).catch((err) => {
+        if (err.codigo === 'sesion') salirPorSesion(err);
+      });
+  }, [ninos, casasData, version]);
+
+  const ponerFoto = (id, data) => {
+    const nuevo = { ...fotosRef.current, [id]: data };
+    fotosRef.current = nuevo;
+    setFotos(nuevo);
+  };
+
+  const subirFoto = (id, data) =>
+    new Promise((ok, mal) => {
+      accion({ accion: 'guardarFoto', id, foto: data }, async () => {
+        ponerFoto(id, data);
+        if (id.startsWith('casa:')) setCasasData((l) => l.map((c) => (`casa:${c.casa}` === id ? { ...c, conFoto: true } : c)));
+        else setNinos((l) => (l || []).map((n) => (n.id === id ? { ...n, conFoto: true } : n)));
+      }).then((bien) => (bien ? ok() : mal(new Error('No se pudo guardar la foto.'))));
+    });
+
+  const quitarFoto = (id) =>
+    accion({ accion: 'borrarFoto', id }, async () => {
+      ponerFoto(id, '');
+      if (id.startsWith('casa:')) setCasasData((l) => l.map((c) => (`casa:${c.casa}` === id ? { ...c, conFoto: false } : c)));
+      else setNinos((l) => (l || []).map((n) => (n.id === id ? { ...n, conFoto: false } : n)));
+    });
 
   const casas = useMemo(() => {
     const s = new Set(CASAS);
@@ -463,32 +464,22 @@ export default function Ninos() {
             {cargando ? <span className="spin" aria-hidden="true" /> : null}
             Actualizar
           </button>
-          <button
-            className="dl ghost"
-            onClick={() => {
-              setFicha(null);
-              setExportar(false);
-              setImportar(true);
-            }}
-          >
+          <button className="dl ghost" onClick={() => abrir('importar')}>
             Importar Excel
           </button>
-          <button
-            className="dl ghost"
-            disabled={!ninos || !ninos.length}
-            onClick={() => {
-              setFicha(null);
-              setImportar(false);
-              setExportar(true);
-            }}
-          >
-            Descargar lista
+          <button className="dl ghost" disabled={!ninos || !ninos.length} onClick={() => abrir('tallas')}>
+            Tallas
+          </button>
+          <button className="dl ghost" disabled={!ninos || !ninos.length} onClick={() => abrir('docs')}>
+            Documentos
+          </button>
+          <button className="dl ghost" onClick={() => abrir('casas')}>
+            Casas
           </button>
           <button
             className="dl"
             onClick={() => {
-              setImportar(false);
-              setExportar(false);
+              setPanel('ficha');
               setFicha({ ...VACIO, casa: casa || '' });
             }}
           >
@@ -503,13 +494,23 @@ export default function Ninos() {
         </div>
       )}
       {aviso && <div className="alert ok-msg">{aviso}</div>}
+      {ninos && version < 2 && (
+        <div className="alert warn">
+          <b>Falta actualizar el código de Google</b>
+          <span>La lista funciona, pero para fotos, casas, hojas de regalos y tallas con fecha hay que pegar el Code.gs nuevo en Apps Script y crear una nueva versión de la implementación.</span>
+        </div>
+      )}
 
-      {ficha && (
+      {panel === 'ficha' && ficha && (
         <Ficha
           key={ficha.id || 'nuevo'}
           inicial={ficha}
           casas={casas}
           guardando={guardando}
+          foto={ficha.id ? fotos[ficha.id] : ''}
+          puedeFoto={version >= 2}
+          onFoto={(data) => subirFoto(ficha.id, data)}
+          onQuitarFoto={() => quitarFoto(ficha.id)}
           onCancelar={() => setFicha(null)}
           onGuardar={(n) =>
             accion({ accion: 'guardar', nino: n }, async (r) => {
@@ -518,8 +519,9 @@ export default function Ninos() {
                 const lista = l || [];
                 return lista.some((x) => x.id === nino.id) ? lista.map((x) => (x.id === nino.id ? nino : x)) : [...lista, nino];
               });
-              setFicha(null);
-              setAviso(`Guardado: ${r.nino.nombre}.`);
+              const seguir = !ficha.id && version >= 2;
+              setFicha(seguir ? { ...VACIO, ...nino } : null);
+              setAviso(seguir ? `Guardado: ${r.nino.nombre}. Ya puedes agregarle la foto.` : `Guardado: ${r.nino.nombre}.`);
             })
           }
           onBorrar={(n) =>
@@ -532,14 +534,14 @@ export default function Ninos() {
         />
       )}
 
-      {importar && (
+      {panel === 'importar' && (
         <Importar
           existentes={ninos || []}
           importando={guardando}
-          onCerrar={() => setImportar(false)}
+          onCerrar={() => setPanel('')}
           onImportar={(lista) =>
             accion({ accion: 'importar', ninos: lista.map(({ fechaDudosa, ...n }) => n) }, async (r) => {
-              setImportar(false);
+              setPanel('');
               setAviso(`Listo: se importaron ${r.agregados} niños.`);
               await cargar();
             })
@@ -547,7 +549,50 @@ export default function Ninos() {
         />
       )}
 
-      {exportar && ninos && <Exportar lista={filtrados} filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')} onCerrar={() => setExportar(false)} />}
+      {panel === 'docs' && ninos && (
+        <Documentos
+          lista={filtrados}
+          todos={ninos}
+          casa={casa}
+          filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')}
+          casasData={casasData}
+          version={version}
+          asegurarFotos={asegurarFotos}
+          onCerrar={() => setPanel('')}
+          onIrCasas={() => abrir('casas')}
+        />
+      )}
+
+      {panel === 'tallas' && ninos && (
+        <Tallas
+          lista={filtrados}
+          filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')}
+          onCerrar={() => setPanel('')}
+          onEditar={(n) => {
+            setPanel('ficha');
+            setFicha({ ...VACIO, ...n, nacimiento: leerFecha(n.nacimiento) || '' });
+          }}
+        />
+      )}
+
+      {panel === 'casas' && (
+        <CasasEditor
+          casas={casas}
+          casasData={casasData}
+          fotos={fotos}
+          puede={version >= 2}
+          guardando={guardando}
+          onCerrar={() => setPanel('')}
+          onGuardar={(c) =>
+            accion({ accion: 'guardarCasa', casa: c }, async (r) => {
+              setCasasData((l) => (l.some((x) => x.casa === r.casa.casa) ? l.map((x) => (x.casa === r.casa.casa ? { ...x, ...r.casa } : x)) : [...l, { ...r.casa, conFoto: false }]));
+              setAviso(`Guardado: ${r.casa.casa}.`);
+            })
+          }
+          onFoto={(c, data) => subirFoto(`casa:${c}`, data)}
+          onQuitarFoto={(c) => quitarFoto(`casa:${c}`)}
+        />
+      )}
 
       {ninos && proximos.length > 0 && (
         <div className="panel">
@@ -617,8 +662,13 @@ export default function Ninos() {
                     return (
                       <tr key={n.id}>
                         <td>
-                          <b>{n.nombre}</b>
-                          {n.notas && <div className="hint">{n.notas}</div>}
+                          <div className="quien">
+                            <span className="avatar">{fotos[n.id] ? <img src={fotos[n.id]} alt="" /> : iniciales(n.nombre)}</span>
+                            <span>
+                              <b>{n.nombre}</b>
+                              {n.notas && <div className="hint">{n.notas}</div>}
+                            </span>
+                          </div>
                         </td>
                         <td>{n.casa}</td>
                         <td>
@@ -626,13 +676,16 @@ export default function Ninos() {
                           {p && p.dias <= 30 && <span className="tag">{p.dias === 0 ? 'hoy' : `en ${p.dias} d`}</span>}
                         </td>
                         <td className="n">{e ?? '—'}</td>
-                        <td>{n.tallaRopa || <span className="hint">—</span>}</td>
+                        <td>
+                          {n.tallaRopa || <span className="hint">—</span>}
+                          {esVieja(n) && <span className="tag vieja" title="Las tallas no se actualizan hace más de 6 meses">revisar</span>}
+                        </td>
                         <td>{n.tallaZapatos || <span className="hint">—</span>}</td>
                         <td>
                           <button
                             className="mini"
                             onClick={() => {
-                              setImportar(false);
+                              setPanel('ficha');
                               setFicha({ ...VACIO, ...n, nacimiento: leerFecha(n.nacimiento) || '' });
                             }}
                           >

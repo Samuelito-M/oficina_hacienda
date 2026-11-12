@@ -1,0 +1,15 @@
+import * as PDFLib from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import fs from 'fs';
+import { generarDirectorio, generarHojasRegalo, generarCumpleMes } from '../src/lib/documentos.js';
+globalThis.atob = (s) => Buffer.from(s, 'base64').toString('binary');
+const fotos = JSON.parse(fs.readFileSync('/tmp/claude-0/-home-claude/926b1fe0-64c1-53ec-873b-9ad3e3a924e8/scratchpad/fotos.json', 'utf8'));
+const f = (p) => fs.readFileSync(p);
+const rec = { normal: f('node_modules/@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff'), bold: f('node_modules/@fontsource/dm-sans/files/dm-sans-latin-700-normal.woff'), mano: f('src/assets/mano.png'), esther: f('src/assets/casa-esther.png') };
+const casas = ['Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 1', 'Casa 2', 'Casa Esther', 'Casa Esther'];
+const ninos = casas.map((c, i) => ({ id: 'n' + i, nombre: ['Niño Prueba', 'Niña Ejemplo', 'Ana Muestra', 'Luis Demo'][i % 4] + ' ' + i, casa: c, nacimiento: i % 3 ? `201${i % 9}-11-${String(i + 3).padStart(2, '0')}` : '', notas: i % 3 ? '' : 'Edad en el directorio: 9' + (i === 12 ? ' · Mamá de Mia' : ''), conFoto: i < 10, colorFavorito: i === 0 ? 'Azul' : '', pasatiempos: i === 0 ? 'Fútbol, Legos' : '', tallaRopa: '14 youth', tallaZapatos: '7 men', deseos: i === 0 ? 'Pelota, audífonos y un libro de dinosaurios' : '', descripcion: i === 0 ? 'Es un niño alegre y sociable que disfruta pasar tiempo con sus amigos. Le encanta jugar fútbol y armar cosas con Legos.' : '' }));
+const cs = [{ casa: 'Casa 1', padres: 'Miguel y Paty', bio: 'Texto de prueba para la biografía de los padres de casa, con varias líneas para ver cómo se acomoda en la página del directorio.', conFoto: true }];
+fs.writeFileSync('/home/claude/e2e/t_dir.pdf', await generarDirectorio({ ninos, casas: cs, fotos, idioma: 'en' }, PDFLib, fontkit, rec));
+fs.writeFileSync('/home/claude/e2e/t_gift.pdf', await generarHojasRegalo({ ninos: ninos.slice(0, 2), fotos, idioma: 'en' }, PDFLib, fontkit, rec));
+fs.writeFileSync('/home/claude/e2e/t_cumple.pdf', await generarCumpleMes({ ninos, fotos, mes: 10, anio: 2026, idioma: 'es' }, PDFLib, fontkit, rec));
+console.log('ok');

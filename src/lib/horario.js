@@ -102,6 +102,7 @@ export function construirTokenizador(personal) {
 
 function etiquetaCasa(lbl) {
   if (lbl === 'oncall') return 'On Call';
+  if (lbl === 'casaest' || lbl === 'esther' || lbl === 'casaesther') return 'Casa Esther';
   const conocida = CASAS.find((c) => squash(c) === lbl);
   if (conocida) return conocida;
   const m = lbl.match(/^casa(\d+)$/);
@@ -112,7 +113,7 @@ function etiquetaCasa(lbl) {
 export function leerCelda(textoCrudo, tokenizar) {
   const sinNotas = textoCrudo.replace(/\([^)]*\)?/g, ' ');
   const t = squash(sinNotas).replace(/:+/g, ':');
-  const etiquetas = [...CASAS.map(squash), 'oncall'].sort((a, b) => b.length - a.length);
+  const etiquetas = [...CASAS.map(squash), 'oncall', 'casaest', 'esther'].sort((a, b) => b.length - a.length);
   const re = new RegExp(`(${etiquetas.join('|')}|casa\\d+):`, 'g');
   const partes = [];
   let m;
@@ -220,6 +221,11 @@ export function analizarHorario({ items }, personal, nombreArchivo) {
     dias[d] = { texto: collapse(texto.replace(/\n/g, ' | ')), ...leerCelda(texto.replace(/\n/g, ' '), tokenizar) };
   }
 
+  return armarResultado(mes, anio, dias);
+}
+
+export function armarResultado(mes, anio, dias) {
+  const diasDelMes = new Date(anio, mes + 1, 0).getDate();
   const encontrados = Object.values(dias).filter(Boolean).length;
   if (encontrados < diasDelMes - 3) throw new HorarioError(`Solo pude leer ${encontrados} de los ${diasDelMes} días del horario.`);
 

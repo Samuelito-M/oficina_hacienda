@@ -61,7 +61,7 @@ function FormCedula({ persona, onGuardar, onCancelar }) {
   );
 }
 
-export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, over, setOver, onHorario, onWord, onDescargar, generando, mantener, setMantener, aviso }) {
+export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, over, setOver, onHorario, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
   const [abierto, setAbierto] = useState(null);
   const [verIdx, setVerIdx] = useState(0);
   const porId = useMemo(() => new Map(personal.map((p) => [p.id, p])), [personal]);
@@ -97,10 +97,10 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
     <section className="wrap" aria-labelledby="t-acuerdos">
       <div className="intro">
         <h2 id="t-acuerdos">Acuerdos de fin de semana</h2>
-        <p>Sube el horario del mes y el Word de acuerdos del mes pasado. Los fijos salen solos; toca un nombre para agregar o quitar extras.</p>
+        <p>Sube el horario del mes (PDF o Excel) y el Word de acuerdos del mes pasado. Los fijos salen solos; toca un nombre para agregar o quitar extras.</p>
       </div>
       <div className="uploads">
-        <Subir etiqueta="Horario del mes" tipo="pdf" estado={horario} onArchivo={onHorario} ayuda="El PDF del calendario del mes" />
+        <Subir etiqueta="Horario del mes" tipo="horario" estado={horario} onArchivo={onHorario} ayuda="El calendario del mes, en PDF o Excel" />
         <Subir etiqueta="Acuerdos del mes pasado" tipo="docx" estado={word} onArchivo={onWord} ayuda="El Word con los acuerdos de trabajo" />
       </div>
 
@@ -141,10 +141,16 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                 <span>Total</span>
               </div>
             </div>
-            <button className="dl" disabled={!puede} onClick={() => onDescargar(lista)}>
-              {generando ? <span className="spin" aria-hidden="true" /> : BAJAR}
-              {generando ? 'Armando…' : 'Descargar Word'}
-            </button>
+            <div className="btns">
+              <button className="dl ghost" disabled={!lista.length || generandoExcel} onClick={() => onExcelPagos(lista, monto)} title="Resumen y detalle de pagos para contabilidad">
+                {generandoExcel ? <span className="spin" aria-hidden="true" /> : BAJAR}
+                {generandoExcel ? 'Armando…' : 'Excel de pagos'}
+              </button>
+              <button className="dl" disabled={!puede} onClick={() => onDescargar(lista)}>
+                {generando ? <span className="spin" aria-hidden="true" /> : BAJAR}
+                {generando ? 'Armando…' : 'Descargar Word'}
+              </button>
+            </div>
           </div>
 
           <div className="cols">

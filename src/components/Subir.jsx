@@ -1,10 +1,12 @@
 import { useId, useRef, useState } from 'react';
 
 const ICONO = { pdf: 'PDF', docx: 'DOC', xlsx: 'XLS' };
+const CLASE = { pdf: 'pdf', docx: 'doc', xlsx: 'xls' };
 const ACCEPT = {
   pdf: '.pdf,application/pdf',
   docx: '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xlsx: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  xlsx: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  horario: '.pdf,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 };
 
 export default function Subir({ etiqueta, tipo, estado, onArchivo, ayuda }) {
@@ -32,7 +34,10 @@ export default function Subir({ etiqueta, tipo, estado, onArchivo, ayuda }) {
         elegir(ev.dataTransfer.files);
       }}
     >
-      <div className={`ic ${e.estado === 'vacio' ? 'none' : tipo === 'pdf' ? 'pdf' : tipo === 'docx' ? 'doc' : 'xls'}`}>{ICONO[tipo]}</div>
+      {(() => {
+        const ext = e.ext || (tipo === 'horario' ? 'pdf' : tipo);
+        return <div className={`ic ${e.estado === 'vacio' ? 'none' : CLASE[ext] || 'pdf'}`}>{tipo === 'horario' && e.estado === 'vacio' ? 'PDF' : ICONO[ext] || 'PDF'}</div>;
+      })()}
       <div className="meta">
         <div className="lbl">{etiqueta}</div>
         <div className="nm">{e.nombre || 'Elige o arrastra el archivo'}</div>

@@ -1,0 +1,16 @@
+import * as pdfjs from '../node_modules/pdfjs-dist/legacy/build/pdf.mjs';
+import * as worker from '../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs';
+import fs from 'fs';
+import { leerItemsPdf, analizarHorario } from '../src/lib/horario.js';
+import { PERSONAL_BASE } from '../src/lib/personal.js';
+globalThis.pdfjsWorker = worker;
+const data = new Uint8Array(fs.readFileSync(process.argv[2]));
+const r = await leerItemsPdf(data, pdfjs);
+const h = analizarHorario(r, PERSONAL_BASE, 'Octubre 2026.pdf');
+console.log('mes', h.mes, h.anio);
+for (const f of h.findes) console.log(f.sabado.toDateString(), JSON.stringify(f.casas), 'call', f.call, 'unk', JSON.stringify(f.desconocidos), f.domingoFuera ? 'DOMFUERA' : '');
+const unk = Object.entries(h.dias).filter(([d, x]) => x && x.desconocidos.length).map(([d, x]) => d + ':' + JSON.stringify(x.desconocidos));
+console.log('dias con desconocidos', unk);
+console.log('dias faltantes', Object.entries(h.dias).filter(([d, x]) => !x).map(([d]) => d));
+console.log('d18', h.dias[18].texto);
+console.log('d2', h.dias[2].texto);

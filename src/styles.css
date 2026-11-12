@@ -1,3 +1,4 @@
+
 @font-face{font-family:'DM Sans';font-style:normal;font-weight:400;font-display:swap;src:url('../node_modules/@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff2') format('woff2')}
 @font-face{font-family:'DM Sans';font-style:normal;font-weight:500;font-display:swap;src:url('../node_modules/@fontsource/dm-sans/files/dm-sans-latin-500-normal.woff2') format('woff2')}
 @font-face{font-family:'DM Sans';font-style:normal;font-weight:600;font-display:swap;src:url('../node_modules/@fontsource/dm-sans/files/dm-sans-latin-600-normal.woff2') format('woff2')}
@@ -287,3 +288,28 @@ table.ninos td:nth-child(2){white-space:nowrap}
 .opciones{display:flex;flex-wrap:wrap;gap:8px 18px}
 .opcion{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
 .opcion input{width:17px;height:17px;accent-color:var(--accent);margin:0}
+/* v1.2 · fotos, tallas, documentos, casas */
+.campo textarea{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);color:var(--ink);font:inherit;font-size:15px;font-weight:400;min-width:0;width:100%;resize:vertical;line-height:1.45}
+.ficha-grid .span4{grid-column:1/-1}
+details.sub{border-top:1px solid var(--line);padding-top:10px}
+details.sub>summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--accent-ink);margin-bottom:10px}
+.foto-box{display:flex;gap:14px;align-items:center}
+.foto-marco{width:84px;height:112px;flex:none;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:24px;overflow:hidden;border:1px solid var(--line)}
+.foto-box.apaisada .foto-marco{width:136px;height:102px}
+.foto-marco img{width:100%;height:100%;object-fit:cover;display:block}
+.foto-acciones{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:14px}
+.quien{display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:12px;font-weight:700;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.tag.vieja{background:var(--warn-soft);color:var(--warn)}
+.seg-wrap{flex-wrap:wrap}
+.seg-wrap button{flex:1 1 auto}
+.casas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.casa-card{border:1px solid var(--line);border-top:5px solid var(--casa);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.casa-card h4{color:var(--casa)}
+table.tallas{width:100%;border-collapse:collapse;font-size:14px}
+table.tallas th,table.tallas td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.tallas th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+table.tallas td.n{font-weight:700;text-align:right;width:3.5em;font-variant-numeric:tabular-nums}
+@media (max-width:480px){.foto-box{align-items:flex-start}.foto-marco{width:72px;height:96px}}
+.ficha>.seg:not(.seg-wrap){align-self:flex-start}

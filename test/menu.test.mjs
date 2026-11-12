@@ -1,0 +1,13 @@
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import JSZip from 'jszip';
+import fs from 'fs';
+globalThis.DOMParser = DOMParser; globalThis.XMLSerializer = XMLSerializer;
+const { leerMenu, previsualizarMenu, generarMenu } = await import('../src/lib/menu.js');
+const data = fs.readFileSync(process.argv[2]);
+const m = await leerMenu(data, JSZip);
+console.log(m.titulo, '|', m.hoja, m.otrasHojas, m.comidas, m.filas.length);
+const r = previsualizarMenu(m);
+console.log(r.conteo);
+for (const f of r.filas) for (const c of f.comidas) if (c.cambio) console.log(f.diaNuevo, '|', c.etiqueta, '|', c.nuevo);
+const out = await generarMenu(m, r);
+fs.writeFileSync(process.argv[3], out); console.log('ok', out.length);
