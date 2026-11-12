@@ -11,8 +11,16 @@ export class NinosError extends Error {
 const K_URL = 'oficina-hacienda.ninos.url';
 const K_SESION = 'oficina-hacienda.ninos.sesion';
 
+const RE_URL = /^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+\/|a\/[^/]+\/macros\/|macros\/)s\/([A-Za-z0-9_-]+)\/exec\/?(?:\?.*)?$/;
+
 export function urlValida(u) {
-  return /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(String(u || '').trim());
+  return RE_URL.test(String(u || '').trim());
+}
+
+export function urlGeneral(u) {
+  const t = String(u || '').trim();
+  const m = t.match(RE_URL);
+  return m ? `https://script.google.com/macros/s/${m[1]}/exec` : t;
 }
 
 export function leerConexion() {
@@ -69,19 +77,19 @@ export function borrarUrl() {
   return true;
 }
 
-export async function llamar(url, datos) {
+async function intentar(url, datos) {
   let r;
   try {
-    r = await fetch(url.trim(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(datos), redirect: 'follow' });
+    r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(datos), redirect: 'follow' });
   } catch {
-    throw new NinosError('No pude conectar con la hoja de Google. Revisa tu internet.', 'red');
+    throw new NinosError('No pude conectar con la hoja de Google. Revisa tu internet y que la implementación tenga acceso "Cualquier persona".', 'red');
   }
   if (!r.ok) throw new NinosError('La hoja de Google no respondió bien. Revisa que la dirección sea la correcta.', 'red');
   let j;
   try {
     j = await r.json();
   } catch {
-    throw new NinosError('Esa dirección no parece ser la de la hoja de niños. Revisa que la implementación esté como "Cualquier persona".', 'url');
+    throw new NinosError('Google pidió iniciar sesión en vez de responder. En la implementación, "Quién tiene acceso" debe ser "Cualquier persona".', 'url');
   }
   if (!j || typeof j !== 'object') throw new NinosError('Respuesta extraña de la hoja de Google.', 'url');
   if (!j.ok) {
@@ -89,6 +97,20 @@ export async function llamar(url, datos) {
     throw new NinosError(j.mensaje || j.error || 'No se pudo completar.', j.error || '');
   }
   return j;
+}
+
+export async function llamar(url, datos) {
+  const opciones = Array.from(new Set([urlGeneral(url), String(url || '').trim()]));
+  let ultimo;
+  for (const u of opciones) {
+    try {
+      return await intentar(u, datos);
+    } catch (err) {
+      if (!(err instanceof NinosError) || (err.codigo !== 'url' && err.codigo !== 'red')) throw err;
+      ultimo = err;
+    }
+  }
+  throw ultimo;
 }
 
 const pad = (n) => String(n).padStart(2, '0');
