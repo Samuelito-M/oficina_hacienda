@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { CASAS } from '../lib/personal.js';
 import { fold } from '../lib/text.js';
-import { leerBytes, extension } from '../lib/archivos.js';
+import { leerBytes, extension, descargar, MIME, nombreSeguro } from '../lib/archivos.js';
+import * as PDFLib from 'pdf-lib';
+import { COLUMNAS, filasExport, generarExcelNinos, generarPdfNinos } from '../lib/exportar.js';
 import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borrarUrl, llamar, urlValida, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
 
 const normal = (n) => ({ ...n, nacimiento: leerFecha(n.nacimiento) || String(n.nacimiento || '') });
@@ -245,6 +247,89 @@ function Importar({ existentes, onImportar, onCerrar, importando }) {
   );
 }
 
+const K_COLS = 'oficina-hacienda.ninos.columnas';
+
+function leerCols() {
+  try {
+    const c = JSON.parse(localStorage.getItem(K_COLS) || 'null');
+    if (Array.isArray(c)) return c.filter((k) => COLUMNAS.some((x) => x.k === k));
+  } catch {
+    return ['casa', 'cumple', 'edad', 'ropa', 'zapatos'];
+  }
+  return ['casa', 'cumple', 'edad', 'ropa', 'zapatos'];
+}
+
+function Exportar({ lista, filtro, onCerrar }) {
+  const [cols, setCols] = useState(leerCols);
+  const [agrupar, setAgrupar] = useState(true);
+  const [ocupado, setOcupado] = useState('');
+  const [msg, setMsg] = useState('');
+  const cambiar = (k, on) => {
+    const n = COLUMNAS.map((c) => c.k).filter((x) => (x === k ? on : cols.includes(x)));
+    setCols(n);
+    try {
+      localStorage.setItem(K_COLS, JSON.stringify(n));
+    } catch {
+      setMsg('');
+    }
+  };
+  const hoy = new Date();
+  const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const base = nombreSeguro(`Niños Hacienda${filtro ? ' - ' + filtro : ''} ${fecha}`);
+  const ir = async (tipo) => {
+    setOcupado(tipo);
+    setMsg('');
+    try {
+      const filas = filasExport(lista, (iso) => edad(iso));
+      if (tipo === 'pdf') {
+        const out = await generarPdfNinos(filas, cols, { subtitulo: filtro, agrupar: agrupar && !(filtro && filtro.startsWith('Casa')) }, PDFLib);
+        descargar(out, `${base}.pdf`, MIME.pdf);
+      } else {
+        const out = await generarExcelNinos(filas, cols, JSZip);
+        descargar(out, `${base}.xlsx`, MIME.xlsx);
+      }
+      setMsg('Listo, revisa tu carpeta de Descargas.');
+    } catch (err) {
+      console.error(err);
+      setMsg('No se pudo armar el archivo. Intenta otra vez.');
+    } finally {
+      setOcupado('');
+    }
+  };
+  return (
+    <div className="ficha">
+      <h4>Descargar lista</h4>
+      <p className="hint">
+        Se descargan los {lista.length} {lista.length === 1 ? 'niño' : 'niños'} que se ven ahora{filtro ? ` (${filtro})` : ''}. El nombre siempre sale. Elige qué más quieres en el documento:
+      </p>
+      <div className="opciones">
+        {COLUMNAS.map((c) => (
+          <label key={c.k} className="opcion">
+            <input type="checkbox" id={`col-${c.k}`} checked={cols.includes(c.k)} onChange={(e) => cambiar(c.k, e.target.checked)} />
+            <span>{c.k === 'cumple' ? 'Fecha de cumpleaños' : c.t}</span>
+          </label>
+        ))}
+      </div>
+      <label className="opcion">
+        <input type="checkbox" id="col-agrupar" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} />
+        <span>En el PDF, separar por casa</span>
+      </label>
+      <div className="row-actions">
+        <button type="button" className="mini solid" disabled={!lista.length || !!ocupado} onClick={() => ir('pdf')}>
+          {ocupado === 'pdf' ? 'Armando…' : 'Descargar PDF'}
+        </button>
+        <button type="button" className="mini solid" disabled={!lista.length || !!ocupado} onClick={() => ir('xlsx')}>
+          {ocupado === 'xlsx' ? 'Armando…' : 'Descargar Excel'}
+        </button>
+        <button type="button" className="mini" onClick={onCerrar}>
+          Cerrar
+        </button>
+      </div>
+      {msg && <p className="hint">{msg}</p>}
+    </div>
+  );
+}
+
 export default function Ninos() {
   const [con, setCon] = useState(leerConexion);
   const [ninos, setNinos] = useState(null);
@@ -257,6 +342,7 @@ export default function Ninos() {
   const [orden, setOrden] = useState('casa');
   const [ficha, setFicha] = useState(null);
   const [importar, setImportar] = useState(false);
+  const [exportar, setExportar] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const hoy = new Date();
 
@@ -381,15 +467,28 @@ export default function Ninos() {
             className="dl ghost"
             onClick={() => {
               setFicha(null);
+              setExportar(false);
               setImportar(true);
             }}
           >
             Importar Excel
           </button>
           <button
+            className="dl ghost"
+            disabled={!ninos || !ninos.length}
+            onClick={() => {
+              setFicha(null);
+              setImportar(false);
+              setExportar(true);
+            }}
+          >
+            Descargar lista
+          </button>
+          <button
             className="dl"
             onClick={() => {
               setImportar(false);
+              setExportar(false);
               setFicha({ ...VACIO, casa: casa || '' });
             }}
           >
@@ -447,6 +546,8 @@ export default function Ninos() {
           }
         />
       )}
+
+      {exportar && ninos && <Exportar lista={filtrados} filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')} onCerrar={() => setExportar(false)} />}
 
       {ninos && proximos.length > 0 && (
         <div className="panel">

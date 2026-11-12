@@ -45,5 +45,12 @@ export function abrirPdf(bytes, nombre) {
 }
 
 export function nombreSeguro(s) {
-  return String(s).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+  return String(s)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[“”«»"']/g, '')
+    .replace(/[\\/:*?<>|]+/g, '-')
+    .replace(/[^\x20-\x7e]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
