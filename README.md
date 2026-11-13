@@ -5,7 +5,7 @@ App para la oficina de Hacienda of Hope. Hace cuatro cosas:
 1. **Acuerdos de fin de semana**: lee el horario del mes (PDF o Excel) y el Word de acuerdos del mes pasado, y arma el Word nuevo y un Excel de pagos para contabilidad.
 2. **Cambio de casa**: con el mismo horario arma las hojas de cambio de casa de cada fin de semana, en PDF.
 3. **Menú del nutricionista**: limpia el Excel del menú (quita cantidades, pone bebida en las cenas, corrige ortografía).
-4. **Niños**: lista de los niños con foto, cumpleaños, edad y tallas. Tiene clave y los datos viven en una hoja de Google de Hacienda. Desde ahí salen el resumen de tallas, las hojas de regalos, el directorio, los cumpleaños del mes y la lista en PDF o Excel.
+4. **Niños**: lista de los niños con foto, cumpleaños, edad y tallas. Tiene clave y los datos viven en una hoja de Google de Hacienda. Desde ahí salen el resumen de tallas, las hojas de regalos, el directorio, los cumpleaños del mes y la lista en PDF o Excel. Con **Equipos** se separan los niños por niñas/niños, edad o casa, o se arman equipos parejos (mezclando niños y niñas, edades parecidas y hermanos separados), y se descargan en PDF o se copian para WhatsApp.
 
 Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben a ningún servidor y funcionan sin internet. Niños necesita internet y la clave.
 

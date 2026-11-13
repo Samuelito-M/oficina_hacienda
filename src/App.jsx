@@ -18,7 +18,7 @@ import { MESES, fechaCorta } from './lib/text.js';
 
 const TABS = ['acuerdos', 'casas', 'menu', 'ninos'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.2';
+const VERSION = '1.3';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');

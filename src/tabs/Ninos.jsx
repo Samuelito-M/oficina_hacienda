@@ -8,11 +8,13 @@ import Foto from '../components/ninos/Foto.jsx';
 import Tallas from '../components/ninos/Tallas.jsx';
 import Documentos from '../components/ninos/Documentos.jsx';
 import CasasEditor from '../components/ninos/Casas.jsx';
+import Equipos from '../components/ninos/Equipos.jsx';
+import { sexoDe } from '../lib/equipos.js';
 import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borrarUrl, llamar, urlValida, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
 
 const normal = (n) => ({ ...n, nacimiento: leerFecha(n.nacimiento) || String(n.nacimiento || '') });
 
-const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', notas: '', descripcion: '', colorFavorito: '', pasatiempos: '', deseos: '' };
+const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', notas: '', descripcion: '', colorFavorito: '', pasatiempos: '', deseos: '', sexo: '' };
 const iniciales = (nombre) => String(nombre || '').split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
 function Candado() {
@@ -86,7 +88,7 @@ function Entrar({ url, onEntrar, mensaje }) {
   );
 }
 
-function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, onFoto, onQuitarFoto }) {
+function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, puedeSexo, onFoto, onQuitarFoto }) {
   const [n, setN] = useState(inicial);
   const [error, setError] = useState('');
   const [confirmar, setConfirmar] = useState(false);
@@ -111,6 +113,14 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, fot
           <input id="f-nombre" value={n.nombre} onChange={set('nombre')} autoFocus />
         </label>
         <label className="campo">
+          Es
+          <select id="f-sexo" value={n.sexo || ''} onChange={set('sexo')} disabled={!puedeSexo} title={puedeSexo ? '' : 'Actualiza el código de Google para guardar esto'}>
+            <option value="">Sin marcar</option>
+            <option value="F">Niña</option>
+            <option value="M">Niño</option>
+          </select>
+        </label>
+        <label className="campo">
           Casa
           <input id="f-casa" list="lista-casas" value={n.casa} onChange={set('casa')} placeholder="Casa 1" />
           <datalist id="lista-casas">
@@ -131,7 +141,7 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, fot
           Talla de zapatos
           <input id="f-zap" value={n.tallaZapatos} onChange={set('tallaZapatos')} placeholder="Ej. 32" />
         </label>
-        <label className="campo span2">
+        <label className="campo span4">
           Notas
           <input id="f-notas" value={n.notas} onChange={set('notas')} placeholder="Opcional" />
         </label>
@@ -285,6 +295,7 @@ export default function Ninos() {
   const [orden, setOrden] = useState('casa');
   const [ficha, setFicha] = useState(null);
   const [panel, setPanel] = useState('');
+  const [sexoF, setSexoF] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [version, setVersion] = useState(2);
   const [casasData, setCasasData] = useState([]);
@@ -394,7 +405,7 @@ export default function Ninos() {
 
   const filtrados = useMemo(() => {
     const q = fold(buscar).trim();
-    const l = (ninos || []).filter((n) => (!casa || n.casa === casa) && (!q || fold(`${n.nombre} ${n.casa} ${n.notas}`).includes(q)));
+    const l = (ninos || []).filter((n) => (!casa || n.casa === casa) && (!sexoF || sexoDe(n) === sexoF) && (!q || fold(`${n.nombre} ${n.casa} ${n.notas}`).includes(q)));
     const idxCasa = (c) => {
       const i = casas.indexOf(c);
       return i < 0 ? 999 : i;
@@ -406,7 +417,9 @@ export default function Ninos() {
       cumple: (a, b) => (proximoCumple(a.nacimiento)?.dias ?? 999) - (proximoCumple(b.nacimiento)?.dias ?? 999)
     }[orden];
     return l.sort(por);
-  }, [ninos, buscar, casa, orden, casas]);
+  }, [ninos, buscar, casa, sexoF, orden, casas]);
+
+  const textoFiltro = [casa, sexoF === 'F' ? 'solo niñas' : sexoF === 'M' ? 'solo niños' : '', buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ');
 
   const proximos = useMemo(
     () =>
@@ -470,6 +483,9 @@ export default function Ninos() {
           <button className="dl ghost" disabled={!ninos || !ninos.length} onClick={() => abrir('tallas')}>
             Tallas
           </button>
+          <button className="dl ghost" disabled={!ninos || !ninos.length} onClick={() => abrir('equipos')}>
+            Equipos
+          </button>
           <button className="dl ghost" disabled={!ninos || !ninos.length} onClick={() => abrir('docs')}>
             Documentos
           </button>
@@ -494,10 +510,12 @@ export default function Ninos() {
         </div>
       )}
       {aviso && <div className="alert ok-msg">{aviso}</div>}
-      {ninos && version < 2 && (
+      {ninos && version < 3 && (
         <div className="alert warn">
           <b>Falta actualizar el código de Google</b>
-          <span>La lista funciona, pero para fotos, casas, hojas de regalos y tallas con fecha hay que pegar el Code.gs nuevo en Apps Script y crear una nueva versión de la implementación.</span>
+          <span>
+            La lista funciona, pero para {version < 2 ? 'fotos, casas, hojas de regalos, tallas con fecha y marcar niño o niña' : 'marcar si es niño o niña'} hay que pegar el Code.gs nuevo en Apps Script y crear una nueva versión de la implementación.
+          </span>
         </div>
       )}
 
@@ -509,6 +527,7 @@ export default function Ninos() {
           guardando={guardando}
           foto={ficha.id ? fotos[ficha.id] : ''}
           puedeFoto={version >= 2}
+          puedeSexo={version >= 3}
           onFoto={(data) => subirFoto(ficha.id, data)}
           onQuitarFoto={() => quitarFoto(ficha.id)}
           onCancelar={() => setFicha(null)}
@@ -554,7 +573,7 @@ export default function Ninos() {
           lista={filtrados}
           todos={ninos}
           casa={casa}
-          filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')}
+          filtro={textoFiltro}
           casasData={casasData}
           version={version}
           asegurarFotos={asegurarFotos}
@@ -563,10 +582,28 @@ export default function Ninos() {
         />
       )}
 
+      {panel === 'equipos' && ninos && (
+        <Equipos
+          lista={filtrados}
+          casas={casas}
+          filtro={textoFiltro}
+          version={version}
+          guardando={guardando}
+          onCerrar={() => setPanel('')}
+          onMarcarSexos={(lista) =>
+            accion({ accion: 'sexos', lista }, async () => {
+              const m = new Map(lista.map((x) => [x.id, x.sexo]));
+              setNinos((l) => (l || []).map((n) => (m.has(n.id) ? { ...n, sexo: m.get(n.id) } : n)));
+              setAviso(`Guardado: ${lista.length} ${lista.length === 1 ? 'niño marcado' : 'niños marcados'}.`);
+            })
+          }
+        />
+      )}
+
       {panel === 'tallas' && ninos && (
         <Tallas
           lista={filtrados}
-          filtro={[casa, buscar.trim() && `búsqueda “${buscar.trim()}”`].filter(Boolean).join(', ')}
+          filtro={textoFiltro}
           onCerrar={() => setPanel('')}
           onEditar={(n) => {
             setPanel('ficha');
@@ -628,6 +665,11 @@ export default function Ninos() {
                   {c}
                 </option>
               ))}
+            </select>
+            <select id="ninos-sexo" value={sexoF} onChange={(e) => setSexoF(e.target.value)} aria-label="Niños o niñas">
+              <option value="">Niños y niñas</option>
+              <option value="F">Solo niñas</option>
+              <option value="M">Solo niños</option>
             </select>
             <select id="ninos-orden" value={orden} onChange={(e) => setOrden(e.target.value)} aria-label="Ordenar">
               <option value="casa">Ordenar por casa</option>

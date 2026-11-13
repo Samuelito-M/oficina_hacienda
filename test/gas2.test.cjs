@@ -2,8 +2,8 @@ const crear=require('./gasSim.cjs');const ok=(c,m)=>{if(!c){console.log('FALLA:'
 const S=crear('google/Code.gs');
 const v1=S.mkSheet('Ninos');v1.rows.push(['id','nombre','casa','nacimiento','tallaRopa','tallaZapatos','notas','actualizado']);v1.rows.push(['abc','Niño Viejo','Casa 1','2015-03-12','10','32','nota','2026-11-11T00:00:00Z']);
 S.props.CLAVE='K1';const t=S.call({accion:'entrar',clave:'K1'}).token;
-const l=S.call({accion:'listar',token:t});ok(l.version===2,'versión 2');ok(l.ninos.length===1&&l.ninos[0].nombre==='Niño Viejo'&&l.ninos[0].tallaRopa==='10','lee hoja vieja sin perder datos');
-ok(v1.rows[0].length===13&&v1.rows[0][11]==='tallasFecha'&&v1.rows[0][12]==='descripcion','agrega columnas nuevas al final');
+const l=S.call({accion:'listar',token:t});ok(l.version===3,'versión 3 al leer');ok(l.ninos.length===1&&l.ninos[0].nombre==='Niño Viejo'&&l.ninos[0].tallaRopa==='10','lee hoja vieja sin perder datos');
+ok(v1.rows[0].length===14&&v1.rows[0][13]==='sexo'&&v1.rows[0][11]==='tallasFecha'&&v1.rows[0][12]==='descripcion','agrega columnas nuevas al final');
 const g=S.call({accion:'guardar',token:t,nino:{id:'abc',nombre:'Niño Viejo',casa:'Casa 1',nacimiento:'2015-03-12',tallaRopa:'10',tallaZapatos:'32',colorFavorito:'Azul',pasatiempos:'Fútbol',deseos:'Pelota'}});
 ok(g.ok&&g.nino.colorFavorito==='Azul'&&g.nino.tallasFecha==='','guardar campos nuevos sin cambiar tallas no pone fecha de tallas');
 const g2=S.call({accion:'guardar',token:t,nino:{id:'abc',nombre:'Niño Viejo',casa:'Casa 1',tallaRopa:'12',tallaZapatos:'33'}});ok(g2.nino.tallasFecha.length>10,'cambiar tallas pone fecha');
@@ -24,5 +24,14 @@ const L2=S.call({accion:'listar',token:t}).ninos;ok(L2.find(x=>x.nombre==='A').t
 ok(S.call({accion:'fotos',token:'x.y',ids:['abc']}).error==='sesion','fotos requiere clave');
 ok(S.call({accion:'guardarFoto',token:'x.y',id:'q',foto}).error==='sesion','guardar foto requiere clave');
 const S2=crear('google/Code.gs');S2.props.CLAVE='K';const t2=S2.call({accion:'entrar',clave:'K'}).token;ok(S2.call({accion:'listar',token:t2}).ninos.length===0,'hoja nueva desde cero');
-ok(S2.sheets.Ninos.rows[0].length===13,'hoja nueva con 13 columnas');
+ok(S2.sheets.Ninos.rows[0].length===14,'hoja nueva con 14 columnas');
 ok(S.call({accion:'guardar',token:t,nino:{nombre:'Desc',descripcion:'Le gusta leer'}}).nino.descripcion==='Le gusta leer','guarda descripción');
+ok(S.call({accion:'listar',token:t}).version===3,'versión 3');
+const gS=S.call({accion:'guardar',token:t,nino:{nombre:'Sexo F',sexo:'f'}}).nino;ok(gS.sexo==='F','guarda sexo en mayúscula');
+ok(S.call({accion:'guardar',token:t,nino:{nombre:'Sexo X',sexo:'otro'}}).nino.sexo==='','sexo inválido queda vacío');
+const L3=S.call({accion:'listar',token:t}).ninos;const a1=L3.find(x=>x.nombre==='A'),b1=L3.find(x=>x.nombre==='B');
+ok(S.call({accion:'sexos',token:t,lista:[{id:a1.id,sexo:'M'},{id:b1.id,sexo:'F'},{id:'nada',sexo:'M'}]}).cambios===2,'marcar varios de una vez');
+const L4=S.call({accion:'listar',token:t}).ninos;ok(L4.find(x=>x.nombre==='A').sexo==='M'&&L4.find(x=>x.nombre==='B').sexo==='F','sexos guardados');
+ok(L4.find(x=>x.nombre==='A').tallaRopa==='4','marcar sexo no toca lo demás');
+ok(S.call({accion:'sexos',token:'x.y',lista:[]}).error==='sesion','sexos requiere clave');
+ok(S.call({accion:'importar',token:t,ninos:[{nombre:'Imp',sexo:'M'}]}).agregados===1&&S.call({accion:'listar',token:t}).ninos.find(x=>x.nombre==='Imp').sexo==='M','importar con sexo');

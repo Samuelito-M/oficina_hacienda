@@ -194,6 +194,7 @@ function resolver(base, target) {
 }
 
 const CAMPOS = [
+  ['sexo', /^(sexo|genero|nino o nina|nina o nino|hombre o mujer)/],
   ['apellido', /apellido/],
   ['nombre', /nombre|nino|nina|estudiante/],
   ['casa', /casa|hogar/],
@@ -203,6 +204,13 @@ const CAMPOS = [
   ['tallaRopa', /ropa|camiseta|camisa|pantalon|talla/],
   ['notas', /nota|observ|comentario/]
 ];
+
+export function leerSexo(v) {
+  const t = fold(String(v ?? '')).trim();
+  if (/^(f|femenino|mujer|nina|girl|female)\b/.test(t)) return 'F';
+  if (/^(m|masculino|hombre|nino|boy|male|varon)\b/.test(t)) return 'M';
+  return '';
+}
 
 export async function leerListaExcel(data, JSZip) {
   let zip;
@@ -259,7 +267,8 @@ export async function leerListaExcel(data, JSZip) {
         fechaDudosa: crudo !== undefined && crudo !== '' && !nacimiento ? String(crudo) : '',
         tallaRopa: String(o.tallaRopa ?? '').trim(),
         tallaZapatos: String(o.tallaZapatos ?? '').trim(),
-        notas: String(o.notas ?? '').trim()
+        notas: String(o.notas ?? '').trim(),
+        sexo: leerSexo(o.sexo)
       });
     }
     if (ninos.length) return { hoja: s.getAttribute('name'), ninos, columnas: Object.values(mapa) };

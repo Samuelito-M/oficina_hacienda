@@ -1,8 +1,8 @@
-const VERSION = 2;
+const VERSION = 3;
 const HOJA = 'Ninos';
 const HOJA_FOTOS = 'Fotos';
 const HOJA_CASAS = 'Casas';
-const COLUMNAS = ['id', 'nombre', 'casa', 'nacimiento', 'tallaRopa', 'tallaZapatos', 'notas', 'actualizado', 'colorFavorito', 'pasatiempos', 'deseos', 'tallasFecha', 'descripcion'];
+const COLUMNAS = ['id', 'nombre', 'casa', 'nacimiento', 'tallaRopa', 'tallaZapatos', 'notas', 'actualizado', 'colorFavorito', 'pasatiempos', 'deseos', 'tallasFecha', 'descripcion', 'sexo'];
 const COLUMNAS_CASAS = ['casa', 'padres', 'bio', 'actualizado'];
 const DIAS_SESION = 30;
 const MAX_FALLOS = 8;
@@ -31,6 +31,7 @@ function atender(datos) {
   if (accion === 'listar') return { ok: true, version: VERSION, ninos: listar(), casas: listarCasas() };
   if (accion === 'guardar') return conCandado(() => ({ ok: true, nino: guardar(datos.nino || {}) }));
   if (accion === 'borrar') return conCandado(() => ({ ok: borrar(String(datos.id || '')) }));
+  if (accion === 'sexos') return conCandado(() => ({ ok: true, cambios: ponerSexos(datos.lista || []) }));
   if (accion === 'importar') return conCandado(() => ({ ok: true, agregados: importar(datos.ninos || []) }));
   if (accion === 'fotos') return { ok: true, fotos: fotos(datos.ids || []) };
   if (accion === 'guardarFoto') return conCandado(() => ({ ok: guardarFoto(String(datos.id || ''), String(datos.foto || '')) }));
@@ -168,8 +169,34 @@ function limpiarNino(n) {
     colorFavorito: texto(n.colorFavorito, 40),
     pasatiempos: texto(n.pasatiempos, 200),
     deseos: texto(n.deseos, 400),
-    descripcion: texto(n.descripcion, 900)
+    descripcion: texto(n.descripcion, 900),
+    sexo: sexoValido(n.sexo)
   };
+}
+
+function sexoValido(v) {
+  const s = String(v == null ? '' : v).trim().toUpperCase();
+  return s === 'F' || s === 'M' ? s : '';
+}
+
+function ponerSexos(lista) {
+  if (!Array.isArray(lista)) return 0;
+  const h = hoja();
+  const m = mapa(h, COLUMNAS);
+  const todas = filasDe(h, m);
+  const porId = {};
+  lista.slice(0, 500).forEach(function (x) {
+    if (x && x.id) porId[String(x.id)] = sexoValido(x.sexo);
+  });
+  let cambios = 0;
+  todas.forEach(function (f, i) {
+    const id = f[m.id];
+    if (id && Object.prototype.hasOwnProperty.call(porId, id) && f[m.sexo] !== porId[id]) {
+      h.getRange(i + 2, m.sexo + 1).setValue(porId[id]);
+      cambios++;
+    }
+  });
+  return cambios;
 }
 
 function filasDe(h, m) {
