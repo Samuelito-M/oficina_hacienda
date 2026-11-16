@@ -33,15 +33,19 @@ import {
   faltanEnDia,
   copiarAnterior,
   resumirQuitados,
-  completar,
-  quitarPersona,
+  armar,
+  sincronizarOnCall,
+  ponerEnBloque,
+  darDeBaja,
+  reactivar,
+  activo,
+  activos,
   idNuevo,
   resumenMes,
   desdeExcel,
-  asignarCasas,
   casasDe,
   esDeUnaCasa,
-  ponerOnCall
+  ROLES
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -90,17 +94,20 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
   const [sel, setSel] = useState(actuales);
   const [verNo, setVerNo] = useState(false);
   const [toda, setToda] = useState(true);
-  const semana = ctx.semanaLaboral(d);
-  const lista = ctx.config.personal.map((p) => ({ p, m: actuales.includes(p.id) ? '' : ctx.motivo(p.id, d, k) }));
-  const extra = actuales.filter((id) => !ctx.porId.has(id)).map((id) => ({ p: { id, n: id }, m: '' }));
-  const si = [...extra, ...lista.filter((x) => !x.m)].sort((a, b) => actuales.includes(b.p.id) - actuales.includes(a.p.id) || esDeUnaCasa(b.p, k) - esDeUnaCasa(a.p, k) || a.p.n.localeCompare(b.p.n, 'es'));
+  const bloque = ctx.bloque(d);
+  const conBloque = (k === ON_CALL || ctx.finde(d)) && bloque.length > 1;
+  const gente = activos(ctx.config, ctx.clave);
+  const lista = gente.map((p) => ({ p, m: actuales.includes(p.id) ? '' : ctx.motivo(p.id, d, k) }));
+  const extra = actuales.filter((id) => !gente.some((p) => p.id === id)).map((id) => ({ p: { id, n: ctx.nombre(id) }, m: '' }));
+  const si = [...extra, ...lista.filter((x) => !x.m)].sort((a, b) => actuales.includes(b.p.id) - actuales.includes(a.p.id) || esDeUnaCasa(b.p, k) - esDeUnaCasa(a.p, k) || (b.p.pref === k) - (a.p.pref === k) || a.p.n.localeCompare(b.p.n, 'es'));
   const no = lista.filter((x) => x.m).sort((a, b) => a.p.n.localeCompare(b.p.n, 'es'));
-  const nec = ctx.necesita(k, d);
+  const R = ctx.config.reglas;
+  const pide = k === ON_CALL ? '¿Quién está de llamada?' : !ctx.finde(d) ? (R.auxMin[k] ? `Entre semana necesita ${R.auxMin[k]} ${R.auxMin[k] === 1 ? 'auxiliar' : 'auxiliares'}.` : 'Entre semana no es obligatorio que tenga a alguien.') : `Fin de semana: con los padres de casa${R.auxMin[k] ? ` más ${R.auxMin[k]} ${R.auxMin[k] === 1 ? 'auxiliar' : 'auxiliares'}` : ''}, o ${R.sinPadres} auxiliares si los padres descansan.`;
   const fila = ({ p, m }) => (
     <label key={p.id}>
       <input type="checkbox" checked={sel.includes(p.id)} onChange={(e) => setSel((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
       <span>{p.n}</span>
-      <span className="r">{m || (esDeUnaCasa(p, k) ? 'de esta casa' : '')}</span>
+      <span className="r">{m || (esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : '')}</span>
     </label>
   );
   const abiertoNo = verNo || !si.length;
@@ -109,7 +116,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
       <h3>
         {k === ON_CALL ? 'On call' : k} · {DIAS_LARGO[ctx.wd(d)]} {d} de {MESES[ctx.mes]}
       </h3>
-      <p className="hint">{k === ON_CALL ? '¿Quién está de llamada este día?' : `Marca quién trabaja aquí este día.${nec ? ` Necesita ${nec} ${nec === 1 ? 'persona' : 'personas'}.` : ''}`}</p>
+      <p className="hint">{pide}</p>
       <div className="h-opc">{si.length ? si.map(fila) : <p className="hint">Nadie está libre según las reglas. Si igual quieres poner a alguien, elígelo abajo.</p>}</div>
       {no.length > 0 && (
         <>
@@ -119,13 +126,13 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
           {abiertoNo && <div className="h-opc apagado">{no.map(fila)}</div>}
         </>
       )}
-      {k === ON_CALL && semana.length > 1 && (
+      {conBloque && (
         <label className="h-toda">
-          <input type="checkbox" id="h-oncall-semana" checked={toda} onChange={(e) => setToda(e.target.checked)} />
+          <input type="checkbox" id="h-todo-bloque" checked={toda} onChange={(e) => setToda(e.target.checked)} />
           <span>
-            Poner lo mismo toda esa semana
+            {ctx.finde(d) ? 'Poner lo mismo todo el fin de semana' : 'Poner lo mismo de lunes a jueves'}
             <small>
-              del {DIAS_LARGO[ctx.wd(semana[0])]} {semana[0]} al {DIAS_LARGO[ctx.wd(semana[semana.length - 1])]} {semana[semana.length - 1]}
+              del {DIAS_LARGO[ctx.wd(bloque[0])]} {bloque[0]} al {DIAS_LARGO[ctx.wd(bloque[bloque.length - 1])]} {bloque[bloque.length - 1]}
             </small>
           </span>
         </label>
@@ -134,7 +141,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
         <button type="button" className="h-btn" onClick={onCerrar}>
           Cancelar
         </button>
-        <button type="button" className="h-btn prim" id="h-elegir-ok" onClick={() => onListo(sel, k === ON_CALL && toda)}>
+        <button type="button" className="h-btn prim" id="h-elegir-ok" onClick={() => onListo(sel, conBloque && toda)}>
           Listo
         </button>
       </div>
@@ -142,29 +149,120 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
   );
 }
 
-function Personal({ config, onCambio, onQuitar, onCerrar }) {
+function Regla({ id, texto, valor, max, onCambio }) {
+  return (
+    <label className="h-regla">
+      <span>{texto}</span>
+      <input id={id} type="number" min="0" max={max} value={valor} onChange={(e) => onCambio(Math.max(0, Math.min(max, Math.floor(+e.target.value) || 0)))} />
+    </label>
+  );
+}
+
+function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
   const [vista, setVista] = useState('gente');
   const [nombre, setNombre] = useState('');
+  const [rol, setRol] = useState('aux');
   const [borrando, setBorrando] = useState('');
   const [error, setError] = useState('');
   const cambiar = (id, cambios) => onCambio({ ...config, personal: config.personal.map((p) => (p.id === id ? { ...p, ...cambios } : p)) });
+  const R = config.reglas;
+  const regla = (cambios) => onCambio({ ...config, reglas: { ...R, ...cambios } });
   const agregar = () => {
     const n = nombre.trim().replace(/\s+/g, ' ');
     if (!n) return setError('Escribe el nombre.');
     if (config.personal.some((p) => p.n.toLowerCase() === n.toLowerCase())) return setError('Ya hay alguien con ese nombre.');
-    onCambio({ ...config, personal: [{ id: idNuevo(config, n), n, casas: [], dias: [1, 2, 3, 4], oc: false }, ...config.personal] });
+    onCambio({ ...config, personal: [{ id: idNuevo(config, n), n, rol, casas: [], pref: '', dias: rol === 'aux' ? [0, 1, 2, 3, 4, 5, 6] : [5, 6, 0], oc: false }, ...config.personal] });
     setNombre('');
     setError('');
   };
+  const cambiarRol = (p, nuevo) => cambiar(p.id, { rol: nuevo, casas: nuevo === 'padre' ? casasDe(p).slice(0, 1) : casasDe(p), pref: nuevo === 'padre' ? '' : p.pref, dias: nuevo === 'aux' ? (p.rol === 'aux' ? p.dias : [0, 1, 2, 3, 4, 5, 6]) : [5, 6, 0] });
+  const tocarCasa = (p, c) => {
+    const on = casasDe(p).includes(c);
+    if (p.rol === 'padre') return cambiar(p.id, { casas: on ? [] : [c] });
+    const casas = on ? casasDe(p).filter((x) => x !== c) : CASAS.filter((x) => x === c || casasDe(p).includes(x));
+    cambiar(p.id, { casas, pref: casas.includes(p.pref) ? p.pref : '' });
+  };
+  const trabajan = config.personal.filter((p) => activo(p, clave));
+  const fuera = config.personal.filter((p) => !activo(p, clave));
+  const grupos = [
+    ['padre', 'Padres de casa'],
+    ['aux', 'Auxiliares'],
+    ['finde', 'Auxiliares solo de fin de semana']
+  ];
+  const filaPersona = (p) => (
+    <div className="h-persona" key={p.id} data-persona={p.n}>
+      <div className="nom">
+        <b>{p.n}</b>
+        <select value={p.rol} aria-label={`Tipo de ${p.n}`} onChange={(e) => cambiarRol(p, e.target.value)}>
+          {Object.entries(ROLES).map(([k, t]) => (
+            <option key={k} value={k}>
+              {t}
+            </option>
+          ))}
+        </select>
+        {!casasDe(p).length && <span className="h-err">Márcale {p.rol === 'padre' ? 'su casa' : 'al menos una casa'}</span>}
+      </div>
+      <div className="col">
+        <span className="et">{p.rol === 'padre' ? 'Su casa' : 'Casas a las que va'}</span>
+        <div className="h-casas" role="group" aria-label={`Casas de ${p.n}`}>
+          {CASAS.map((c) => {
+            const on = casasDe(p).includes(c);
+            return (
+              <button key={c} type="button" aria-pressed={on} title={c} data-casa={c} style={on ? { background: COLOR_PUESTO[c], borderColor: COLOR_PUESTO[c] } : undefined} onClick={() => tocarCasa(p, c)}>
+                {CORTO[c]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="col">
+        <span className="et">{p.rol === 'aux' ? 'Días que trabaja (apaga su descanso)' : 'Días que trabaja'}</span>
+        <div className="h-dias" role="group" aria-label={`Días que trabaja ${p.n}`}>
+          {[1, 2, 3, 4, 5, 6, 0].map((w) => (
+            <button key={w} type="button" aria-pressed={p.dias.includes(w)} title={DIAS_LARGO[w]} data-dia={w} onClick={() => cambiar(p.id, { dias: p.dias.includes(w) ? p.dias.filter((x) => x !== w) : [...p.dias, w] })}>
+              {DIAS_SEM[w][0]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {p.rol !== 'padre' && (
+        <div className="col">
+          <span className="et">Prefiere</span>
+          <select value={p.pref || ''} aria-label={`Casa preferida de ${p.n}`} data-pref onChange={(e) => cambiar(p.id, { pref: e.target.value })}>
+            <option value="">Cualquiera</option>
+            {casasDe(p).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <label className="oc">
+        <input type="checkbox" checked={p.oc} onChange={(e) => cambiar(p.id, { oc: e.target.checked })} /> On call
+      </label>
+      <button
+        type="button"
+        className={`h-x${borrando === p.id ? ' si' : ''}`}
+        onClick={() => {
+          if (borrando !== p.id) return setBorrando(p.id);
+          setBorrando('');
+          onQuitar(p.id);
+        }}
+      >
+        {borrando === p.id ? '¿Quitar?' : 'Quitar'}
+      </button>
+    </div>
+  );
   return (
     <>
-      <h3>Personal</h3>
+      <h3>Personal y reglas</h3>
       <div className="h-tabs">
-        <button type="button" className={vista === 'gente' ? 'on' : ''} onClick={() => setVista('gente')}>
+        <button type="button" id="h-tab-gente" className={vista === 'gente' ? 'on' : ''} onClick={() => setVista('gente')}>
           Trabajadores
         </button>
-        <button type="button" className={vista === 'casas' ? 'on' : ''} onClick={() => setVista('casas')}>
-          Personas por casa
+        <button type="button" id="h-tab-reglas" className={vista === 'reglas' ? 'on' : ''} onClick={() => setVista('reglas')}>
+          Reglas
         </button>
       </div>
       {vista === 'gente' ? (
@@ -173,97 +271,70 @@ function Personal({ config, onCambio, onQuitar, onCerrar }) {
             <b>Agregar trabajador</b>
             <div className="h-fila">
               <input id="h-nuevo-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre" maxLength={30} onKeyDown={(e) => e.key === 'Enter' && agregar()} />
+              <select id="h-nuevo-rol" value={rol} onChange={(e) => setRol(e.target.value)} aria-label="Tipo">
+                {Object.entries(ROLES).map(([k, t]) => (
+                  <option key={k} value={k}>
+                    {t}
+                  </option>
+                ))}
+              </select>
               <button type="button" className="h-btn prim" id="h-nuevo-ok" onClick={agregar}>
                 Agregar
               </button>
             </div>
             {error && <span className="h-err">{error}</span>}
           </div>
-          <p className="hint">Para cada persona marca a qué <b>casas</b> puede ir y qué <b>días</b> trabaja. Si le quitas una casa, la app ya no la pone ahí y te avisa si la eliges.</p>
           <div className="h-gente">
-            {config.personal.map((p) => (
-              <div className="h-persona" key={p.id}>
-                <div className="nom">
-                  <b>{p.n}</b>
-                  {!casasDe(p).length && <span className="h-err">Márcale al menos una casa</span>}
+            {grupos.map(([k, t]) => {
+              const l = trabajan.filter((p) => p.rol === k);
+              return l.length ? (
+                <div key={k}>
+                  <h4 className="h-grupo">{t}</h4>
+                  {l.map(filaPersona)}
                 </div>
-                <div className="h-casas" role="group" aria-label={`Casas a las que va ${p.n}`}>
-                  {CASAS.map((c) => {
-                    const on = casasDe(p).includes(c);
-                    return (
-                      <button key={c} type="button" aria-pressed={on} title={c} data-casa={c} style={on ? { background: COLOR_PUESTO[c], borderColor: COLOR_PUESTO[c] } : undefined} onClick={() => cambiar(p.id, { casas: on ? casasDe(p).filter((x) => x !== c) : CASAS.filter((x) => x === c || casasDe(p).includes(x)) })}>
-                        {CORTO[c]}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="h-dias" role="group" aria-label={`Días que trabaja ${p.n}`}>
-                  {[1, 2, 3, 4, 5, 6, 0].map((w) => (
-                    <button key={w} type="button" aria-pressed={p.dias.includes(w)} title={DIAS_LARGO[w]} onClick={() => cambiar(p.id, { dias: p.dias.includes(w) ? p.dias.filter((x) => x !== w) : [...p.dias, w] })}>
-                      {DIAS_SEM[w][0]}
+              ) : null;
+            })}
+            {fuera.length > 0 && (
+              <div>
+                <h4 className="h-grupo">Ya no trabajan</h4>
+                {fuera.map((p) => (
+                  <div className="h-persona baja" key={p.id}>
+                    <div className="nom">
+                      <b>{p.n}</b>
+                      <span className="hint">Trabajó hasta {MESES[partesMes(p.hasta).mes]} de {partesMes(p.hasta).anio}</span>
+                    </div>
+                    <button type="button" className="h-x" onClick={() => onCambio(reactivar(config, p.id))}>
+                      Volver a poner
                     </button>
-                  ))}
-                </div>
-                <label className="oc">
-                  <input type="checkbox" checked={p.oc} onChange={(e) => cambiar(p.id, { oc: e.target.checked })} /> On call
-                </label>
-                <button
-                  type="button"
-                  className={`h-x${borrando === p.id ? ' si' : ''}`}
-                  onClick={() => {
-                    if (borrando !== p.id) return setBorrando(p.id);
-                    setBorrando('');
-                    onQuitar(p.id);
-                  }}
-                >
-                  {borrando === p.id ? '¿Quitar?' : 'Quitar'}
-                </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </>
       ) : (
-        <>
-          <p className="hint">Cuántas personas necesita cada casa como mínimo, según el día de la semana. La app avisa en rojo si hay menos. Pon 0 si ese día la casa puede quedar sin nadie.</p>
-          <div className="h-scroll">
-            <table className="h-nec">
-              <thead>
-                <tr>
-                  <th />
-                  {[1, 2, 3, 4, 5, 6, 0].map((w) => (
-                    <th key={w}>{DIAS_SEM[w]}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {CASAS.map((c) => (
-                  <tr key={c}>
-                    <th>
-                      <i style={{ background: COLOR_PUESTO[c] }} />
-                      {c}
-                    </th>
-                    {[1, 2, 3, 4, 5, 6, 0].map((w) => (
-                      <td key={w}>
-                        <input
-                          type="number"
-                          min="0"
-                          max="6"
-                          aria-label={`${c}, ${DIAS_LARGO[w]}`}
-                          data-nec={`${c}|${w}`}
-                          value={config.nec[c][w]}
-                          onChange={(e) => {
-                            const v = Math.max(0, Math.min(6, Math.floor(+e.target.value) || 0));
-                            onCambio({ ...config, nec: { ...config.nec, [c]: config.nec[c].map((x, i) => (i === w ? v : x)) } });
-                          }}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+        <div className="h-reglas">
+          <p className="hint">Con estas reglas la app arma el horario y te avisa si algo no se cumple. Fin de semana es de viernes a domingo.</p>
+          <h4 className="h-grupo">Fines de semana al mes</h4>
+          <Regla id="h-r-padres" texto="Fines de semana que trabajan los padres de casa (uno sí, uno no)" valor={R.findesPadres} max={5} onCambio={(v) => regla({ findesPadres: v })} />
+          <Regla id="h-r-aux" texto="Fines de semana que trabaja cada auxiliar (uno más si el mes trae 5)" valor={R.findesAux} max={5} onCambio={(v) => regla({ findesAux: v })} />
+          <h4 className="h-grupo">Cuántos auxiliares por casa</h4>
+          <Regla id="h-r-sin" texto="Fin de semana que los padres de casa descansan" valor={R.sinPadres} max={4} onCambio={(v) => regla({ sinPadres: v })} />
+          <p className="hint">Siempre, además de los padres (de lunes a jueves y también cuando los padres trabajan):</p>
+          {CASAS.map((c) => (
+            <label className="h-regla" key={c}>
+              <span>
+                <i style={{ background: COLOR_PUESTO[c] }} />
+                {c}
+              </span>
+              <input type="number" min="0" max="4" data-auxmin={c} aria-label={`Auxiliares en ${c}`} value={R.auxMin[c]} onChange={(e) => regla({ auxMin: { ...R.auxMin, [c]: Math.max(0, Math.min(4, Math.floor(+e.target.value) || 0)) } })} />
+            </label>
+          ))}
+          <h4 className="h-grupo">On call</h4>
+          <p className="hint">Quien tenga marcado “On call” en Trabajadores queda de llamada de lunes a jueves después de cada fin de semana que trabaja. La app lo pone y lo quita sola.</p>
+          <h4 className="h-grupo">De lunes a jueves</h4>
+          <p className="hint">Trabajan todos los auxiliares menos en su día de descanso. Los que sobran van a Casa 2 o de segundo en otra casa.</p>
+        </div>
       )}
       <div className="h-acc">
         <button type="button" className="h-btn prim" id="h-personal-ok" onClick={onCerrar}>
@@ -276,7 +347,8 @@ function Personal({ config, onCambio, onQuitar, onCerrar }) {
 
 function Vacaciones({ ctx, onCambio, onCerrar }) {
   const h = ctx.horario;
-  const [id, setId] = useState(ctx.config.personal[0]?.id || '');
+  const gente = activos(ctx.config, ctx.clave);
+  const [id, setId] = useState(gente[0]?.id || '');
   const [de, setDe] = useState('');
   const [a, setA] = useState('');
   const [fer, setFer] = useState('');
@@ -324,7 +396,7 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
         <b>Agregar vacaciones o permiso</b>
         <div className="h-fila">
           <select id="h-vac-quien" value={id} onChange={(e) => setId(e.target.value)} aria-label="Persona">
-            {ctx.config.personal.map((p) => (
+            {gente.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.n}
               </option>
@@ -406,9 +478,9 @@ export default function Horario({ personal, avisar }) {
       const d = r.datos || {};
       const h = normalizarHorario(d.horario);
       const ant = normalizarHorario(d.anterior);
-      const cfg = asignarCasas(normalizarConfig(d.config), ant ? [{ clave: moverMes(cual, -1), horario: ant }] : [{ clave: cual, horario: h }]);
+      const cfg = normalizarConfig(d.config);
       setConfig(cfg);
-      setConfigGuardada(d.config ? J(normalizarConfig(d.config)) : '');
+      setConfigGuardada(d.config && d.config.v === 3 ? J(cfg) : '');
       setHorario(h);
       setGuardado(h ? J(h) : null);
       setActualizado(d.actualizado || '');
@@ -491,15 +563,20 @@ export default function Horario({ personal, avisar }) {
     avisar(`Copié ${soloMes(moverMes(clave, -1))}. Revisa, cambia lo que sea distinto y toca “Guardar horario”.`);
   };
 
-  const llenar = () => {
-    const r = completar(clave, horario, config);
+  const llenar = (desdeCero) => {
+    const base = desdeCero ? { dias: {}, vac: horario ? horario.vac : [], fer: horario ? horario.fer : [] } : horario;
+    const r = armar(clave, base, config, anterior);
     setHorario(r.horario);
-    setNuevos((n) => [...n, ...r.nuevos]);
-    const quedan = problemas(contexto(clave, r.horario, config)).filter((p) => p.tipo === 'falta').length;
-    const partes = [];
-    if (r.casas) partes.push(`${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'} en las casas`);
-    if (r.calls) partes.push(`el on call de ${r.calls} ${r.calls === 1 ? 'día' : 'días'}`);
-    avisar(partes.length ? `Llené ${partes.join(' y ')}. Lo nuevo está en color para que lo revises.${quedan ? ` ${quedan === 1 ? 'Quedó 1 espacio' : `Quedaron ${quedan} espacios`} sin nadie libre.` : ''}` : 'No había nadie libre para los espacios que faltan. Tócalos para elegir a alguien.');
+    setNuevos(desdeCero ? [] : (n) => [...n, ...r.nuevos]);
+    if (desdeCero) {
+      setNotas([]);
+      setSem(0);
+    }
+    const quedan = problemas(contexto(clave, r.horario, config)).filter((p) => p.tipo === 'falta');
+    const casasQ = Array.from(new Set(quedan.map((p) => p.k)));
+    const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): están en rojo.` : '';
+    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
+    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo rojo para elegir, o usa “Volver a armar con las reglas”.');
   };
 
   const subir = async (file) => {
@@ -515,7 +592,7 @@ export default function Horario({ personal, avisar }) {
         avisar(`Ese archivo es de ${nombreMes(suClave).toLowerCase()}. Ve a ese mes con las flechas de arriba y súbelo ahí.`);
         return;
       }
-      const r = desdeExcel(an.dias, personal, config, clave, an.feriados || []);
+      const r = desdeExcel(an.dias, personal, config);
       setConfig(r.config);
       setHorario({ ...r.horario, vac: horario ? horario.vac : [], fer: Array.from(new Set([...(horario ? horario.fer : []), ...(an.feriados || [])])).sort((x, y) => x - y) });
       setNotas(r.agregados.length ? [`Agregué al personal a: ${r.agregados.join(', ')}`] : []);
@@ -604,7 +681,7 @@ export default function Horario({ personal, avisar }) {
                 </th>
                 {hueco(pre, 'td')}
                 {dias.map((d) => {
-                  const f = ctx.necesita(k, d) - en(ctx.horario, d, k).length;
+                  const f = ctx.falta(k, d);
                   return (
                     <td key={d} className={ctx.finde(d) ? 'fin' : ''}>
                       <button type="button" className={`h-celda${f > 0 ? ' falta' : ''}`} data-d={d} data-k={k} onClick={() => setVentana({ tipo: 'elegir', d, k })}>
@@ -637,7 +714,7 @@ export default function Horario({ personal, avisar }) {
         </div>
         {PUESTOS.map((k) => {
           const l = nombres(d, k);
-          const f = ctx.necesita(k, d) - l.length;
+          const f = ctx.falta(k, d);
           return (
             <button key={k} type="button" className={`h-linea${k === ON_CALL ? ' chica' : ''}`} data-d={d} data-k={k} onClick={() => setVentana({ tipo: 'elegir', d, k })}>
               <span className="et" style={{ background: COLOR_PUESTO[k] }}>
@@ -717,22 +794,23 @@ export default function Horario({ personal, avisar }) {
             🗓️
           </div>
           <h3>{nombreMes(clave)} todavía está vacío</h3>
-          {anterior ? (
-            <>
-              <p>Empieza con el horario de {ant}. Se copia igual (cada lunes con su lunes, cada sábado con su sábado) y luego solo cambias lo que sea distinto.</p>
-              <button type="button" className="h-btn prim grande" id="h-copiar" onClick={copiar}>
-                Copiar el horario de {ant}
+          <p>La app arma el mes completo con las reglas: padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y el on call. Después solo cambias lo que haga falta.</p>
+          <button type="button" className="h-btn prim grande" id="h-armar" onClick={() => llenar(true)}>
+            Armar el horario con las reglas
+          </button>
+          <div className="h-otras">
+            {anterior && (
+              <button type="button" className="btn-link" id="h-copiar" onClick={copiar}>
+                Copiar el de {ant}
               </button>
-            </>
-          ) : (
-            <p>Si ya tienes el horario de este mes en Excel o PDF, súbelo y la app lo lee. Si no, empieza en blanco.</p>
-          )}
-          <button type="button" className={`h-btn${anterior ? '' : ' prim grande'}`} id="h-subir" disabled={ocupado === 'subir'} onClick={() => archivo.current.click()}>
-            {ocupado === 'subir' ? 'Leyendo…' : `Subir el horario de ${soloMes(clave)} (Excel o PDF)`}
-          </button>
-          <button type="button" className="btn-link" id="h-blanco" onClick={() => setHorario(horarioVacio())}>
-            o empezar en blanco
-          </button>
+            )}
+            <button type="button" className="btn-link" id="h-subir" disabled={ocupado === 'subir'} onClick={() => archivo.current.click()}>
+              {ocupado === 'subir' ? 'Leyendo…' : 'Subir un Excel o PDF'}
+            </button>
+            <button type="button" className="btn-link" id="h-blanco" onClick={() => setHorario(horarioVacio())}>
+              Empezar en blanco
+            </button>
+          </div>
         </div>
       );
     }
@@ -763,7 +841,7 @@ export default function Horario({ personal, avisar }) {
           )}
           <span className="esp" />
           {faltas > 0 && (
-            <button type="button" className="h-btn prim" id="h-completar" onClick={llenar}>
+            <button type="button" className="h-btn prim" id="h-completar" onClick={() => llenar(false)}>
               ✨ Completar lo que falta
             </button>
           )}
@@ -771,7 +849,7 @@ export default function Horario({ personal, avisar }) {
             Descargar
           </button>
         </div>
-        {aviso(modo === 'semana' ? delaSemana : todos, modo)}
+        {ctx.revisa ? aviso(modo === 'semana' ? delaSemana : todos, modo) : <p className="hint">Este mes es anterior a las reglas nuevas, así que la app no lo revisa.</p>}
         {notas.length > 0 && <p className="hint">{notas.join(' · ')}</p>}
         {modo === 'semana' ? (
           tablaSemana(Math.min(sem, ctx.semanas - 1))
@@ -802,6 +880,9 @@ export default function Horario({ personal, avisar }) {
           </button>
           <button type="button" className="btn-link" id="h-resubir" disabled={ocupado === 'subir'} onClick={() => archivo.current.click()}>
             Subir Excel de {soloMes(clave)}
+          </button>
+          <button type="button" className="btn-link" id="h-rearmar" onClick={() => setVentana({ tipo: 'rearmar' })}>
+            Volver a armar con las reglas
           </button>
           {anterior && (
             <button type="button" className="btn-link" onClick={() => setVentana({ tipo: 'recopiar' })}>
@@ -835,7 +916,7 @@ export default function Horario({ personal, avisar }) {
         )}
         {estado === 'listo' && (
           <button type="button" className="h-btn" id="h-personal" onClick={() => setVentana({ tipo: 'personal' })}>
-            Personal
+            Personal y reglas
           </button>
         )}
       </div>
@@ -862,7 +943,8 @@ export default function Horario({ personal, avisar }) {
             k={ventana.k}
             onCerrar={() => setVentana(null)}
             onListo={(ids, todaLaSemana) => {
-              cambiar(ventana.k === ON_CALL ? ponerOnCall(ctx, ventana.d, ids, todaLaSemana) : poner(horario, ventana.d, ventana.k, ids));
+              const h2 = ponerEnBloque(ctx, ventana.d, ventana.k, ids, todaLaSemana);
+              cambiar(ventana.k === ON_CALL ? h2 : sincronizarOnCall(clave, h2, config, anterior));
               setVentana(null);
             }}
           />
@@ -880,6 +962,7 @@ export default function Horario({ personal, avisar }) {
       >
         <Personal
           config={config}
+          clave={clave}
           onCambio={setConfig}
           onCerrar={() => {
             setVentana(null);
@@ -887,9 +970,10 @@ export default function Horario({ personal, avisar }) {
           }}
           onQuitar={(id) => {
             const n = ctx.nombre(id);
-            setConfig({ ...config, personal: config.personal.filter((p) => p.id !== id) });
-            if (horario) cambiar(quitarPersona(horario, id));
-            avisar(`Quité a ${n}. Los meses pasados quedan igual.`);
+            const r = darDeBaja(config, horario, id, clave);
+            setConfig(r.config);
+            if (horario) cambiar(r.horario);
+            avisar(`${n} ya no sale desde ${soloMes(clave)}. Los meses anteriores quedan igual.`);
           }}
         />
       </Ventana>
@@ -945,6 +1029,27 @@ export default function Horario({ personal, avisar }) {
         <div className="h-acc">
           <button type="button" className="h-btn prim" onClick={() => setVentana(null)}>
             Listo
+          </button>
+        </div>
+      </Ventana>
+
+      <Ventana abierta={ventana?.tipo === 'rearmar'} onCerrar={() => setVentana(null)} etiqueta="Volver a armar">
+        <h3>¿Volver a armar {soloMes(clave)} con las reglas?</h3>
+        <p className="hint">Se borra lo que hay en {soloMes(clave)} y la app lo arma de nuevo. Las vacaciones y feriados se quedan. No se guarda hasta que toques el botón de guardar.</p>
+        <div className="h-acc">
+          <button type="button" className="h-btn" onClick={() => setVentana(null)}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="h-btn prim"
+            id="h-rearmar-ok"
+            onClick={() => {
+              setVentana(null);
+              llenar(true);
+            }}
+          >
+            Sí, armar de nuevo
           </button>
         </div>
       </Ventana>
