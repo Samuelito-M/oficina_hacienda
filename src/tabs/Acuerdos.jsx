@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Subir from '../components/Subir.jsx';
+import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import Personal from '../components/Personal.jsx';
 import Desconocidos from '../components/Desconocidos.jsx';
 import { acuerdosElegidos, claveFinde, estaElegido, listo, vistaPrevia } from '../lib/seleccion.js';
@@ -61,7 +62,7 @@ function FormCedula({ persona, onGuardar, onCancelar }) {
   );
 }
 
-export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, over, setOver, onHorario, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
+export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, over, setOver, onHorario, onHorarioApp, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
   const [abierto, setAbierto] = useState(null);
   const [verIdx, setVerIdx] = useState(0);
   const porId = useMemo(() => new Map(personal.map((p) => [p.id, p])), [personal]);
@@ -103,6 +104,7 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
         <Subir etiqueta="Horario del mes" tipo="horario" estado={horario} onArchivo={onHorario} ayuda="El calendario del mes, en PDF o Excel" />
         <Subir etiqueta="Acuerdos del mes pasado" tipo="docx" estado={word} onArchivo={onWord} ayuda="El Word con los acuerdos de trabajo" />
       </div>
+      <HorarioGuardado onElegir={onHorarioApp} />
 
       {errorAnalisis && (
         <div className="alert bad" role="alert">

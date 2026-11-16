@@ -6,6 +6,7 @@ import Acuerdos from './tabs/Acuerdos.jsx';
 import Casas from './tabs/Casas.jsx';
 import Menu from './tabs/Menu.jsx';
 import Ninos from './tabs/Ninos.jsx';
+import Horario from './tabs/Horario.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
 import { leerGrillaExcel, analizarHorarioExcel } from './lib/horarioExcel.js';
 import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acuerdos.js';
@@ -15,10 +16,11 @@ import { leerMenu, previsualizarMenu, generarMenu, MenuError } from './lib/menu.
 import { cargarPersonal, guardarPersonal, fusionarPersonas } from './lib/personal.js';
 import { descargar, abrirPdf, extension, leerBytes, MIME, nombreSeguro } from './lib/archivos.js';
 import { MESES, fechaCorta } from './lib/text.js';
+import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib/horarioApp.js';
 
-const TABS = ['acuerdos', 'casas', 'menu', 'ninos'];
+const TABS = ['acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.3';
+const VERSION = '1.4';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -80,17 +82,18 @@ export default function App() {
 
   const llaveTokens = personal.map((p) => p.id + ':' + (p.alias || []).join(',')).join('|');
   const { analisis, errorAnalisis } = useMemo(() => {
-    if (!horario.pdf && !horario.excel) return { analisis: null, errorAnalisis: '' };
+    if (!horario.pdf && !horario.excel && !horario.app) return { analisis: null, errorAnalisis: '' };
     try {
+      if (horario.app) return { analisis: aAnalisis(horario.app.clave, horario.app.horario, horario.app.config, personal), errorAnalisis: '' };
       return { analisis: horario.excel ? analizarHorarioExcel(horario.excel, personal, horario.nombre) : analizarHorario(horario.pdf, personal, horario.nombre), errorAnalisis: '' };
     } catch (e) {
       console.error(e);
       return { analisis: null, errorAnalisis: mensaje(e, 'Este PDF no tiene la forma del horario mensual.') };
     }
-  }, [horario.pdf, horario.excel, horario.nombre, llaveTokens]);
+  }, [horario.pdf, horario.excel, horario.app, horario.nombre, llaveTokens]);
 
   useEffect(() => {
-    if (!horario.pdf && !horario.excel) return;
+    if (!horario.pdf && !horario.excel && !horario.app) return;
     if (analisis) {
       const personas = new Set();
       analisis.findes.forEach((f) => Object.values(f.casas).forEach((ids) => ids.forEach((i) => personas.add(i))));
@@ -115,6 +118,18 @@ export default function App() {
       console.error(e);
       setHorario({ estado: 'error', nombre: file.name, ext, error: mensaje(e, 'No pude abrir este archivo.') });
     }
+  };
+
+  const onHorarioApp = (clave, h, cfg) => {
+    const limpio = normalizarHorario(h);
+    if (!limpio) {
+      setHorario({ estado: 'error', nombre: 'Horario de la app', ext: 'xlsx', error: 'Ese mes no tiene horario guardado.' });
+      return;
+    }
+    const { anio, mes } = partesMes(clave);
+    setOver({});
+    setMarcas({});
+    setHorario({ estado: 'cargando', nombre: `Horario de ${MESES[mes]} ${anio} (guardado en la app)`, ext: 'xlsx', app: { clave, horario: limpio, config: normalizarConfig(cfg) } });
   };
 
   const onWord = async (file) => {
@@ -244,7 +259,7 @@ export default function App() {
             </div>
             <div>
               <h1>Hacienda of Hope</h1>
-              <p>Oficina · acuerdos, cambios de casa, menú y niños</p>
+              <p>Oficina · acuerdos, cambios de casa, menú, niños y horario</p>
             </div>
           </div>
           <nav aria-label="Herramientas">
@@ -252,7 +267,8 @@ export default function App() {
               ['acuerdos', 'Acuerdos'],
               ['casas', 'Cambio de casa'],
               ['menu', 'Menú'],
-              ['ninos', 'Niños']
+              ['ninos', 'Niños'],
+              ['horario', 'Horario']
             ].map(([k, l]) => (
               <a key={k} href={`#${k}`} id={`tab-${k}`} aria-current={tab === k ? 'page' : undefined}>
                 {l}
@@ -278,6 +294,7 @@ export default function App() {
             over={over}
             setOver={setOver}
             onHorario={onHorario}
+            onHorarioApp={onHorarioApp}
             onWord={onWord}
             onDescargar={onDescargarWord}
             generando={generando === 'word'}
@@ -288,8 +305,9 @@ export default function App() {
             aviso={aviso}
           />
         )}
-        {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onPdf={onPdf} generando={generando === 'pdf'} />}
+        {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onHorarioApp={onHorarioApp} onPdf={onPdf} generando={generando === 'pdf'} />}
         {tab === 'ninos' && <Ninos />}
+        {tab === 'horario' && <Horario personal={personal} avisar={setToast} />}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">
@@ -297,7 +315,7 @@ export default function App() {
               <rect x="5" y="11" width="14" height="9" rx="2" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
-            {tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
+            {tab === 'horario' ? 'El horario se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
           </p>
         </div>
       </main>

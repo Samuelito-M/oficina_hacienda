@@ -1,4 +1,4 @@
-const VERSION = 3;
+const VERSION = 4;
 const HOJA = 'Ninos';
 const HOJA_FOTOS = 'Fotos';
 const HOJA_CASAS = 'Casas';
@@ -8,6 +8,8 @@ const DIAS_SESION = 30;
 const MAX_FALLOS = 8;
 const MINUTOS_BLOQUEO = 15;
 const MAX_FOTO = 48000;
+const HOJA_HORARIOS = 'Horarios';
+const MAX_HORARIO = 45000;
 
 function doGet() {
   return ContentService.createTextOutput('Oficina Hacienda: servicio activo.');
@@ -36,6 +38,10 @@ function atender(datos) {
   if (accion === 'fotos') return { ok: true, fotos: fotos(datos.ids || []) };
   if (accion === 'guardarFoto') return conCandado(() => ({ ok: guardarFoto(String(datos.id || ''), String(datos.foto || '')) }));
   if (accion === 'borrarFoto') return conCandado(() => ({ ok: borrarFoto(String(datos.id || '')) }));
+  if (accion === 'horario') return { ok: true, version: VERSION, datos: leerHorario(String(datos.mes || '')) };
+  if (accion === 'horarios') return { ok: true, version: VERSION, meses: mesesGuardados() };
+  if (accion === 'guardarHorario') return conCandado(() => ({ ok: true, actualizado: guardarDato(mesValido(datos.mes), datos.horario) }));
+  if (accion === 'guardarConfig') return conCandado(() => ({ ok: true, actualizado: guardarDato('config', datos.config) }));
   if (accion === 'guardarCasa') return conCandado(() => ({ ok: true, casa: guardarCasa(datos.casa || {}) }));
   return { ok: false, error: 'Acción desconocida.' };
 }
@@ -387,7 +393,80 @@ function guardarCasa(c) {
   return o;
 }
 
+function hojaHorarios() {
+  return hojaCon(HOJA_HORARIOS, ['id', 'datos', 'actualizado']);
+}
+
+function mesValido(mes) {
+  const m = String(mes || '');
+  if (!/^20\d\d-(0[1-9]|1[0-2])$/.test(m)) throw new Error('mes');
+  return m;
+}
+
+function mesAnterior(mes) {
+  const a = +mes.slice(0, 4);
+  const m = +mes.slice(5, 7);
+  return m === 1 ? a - 1 + '-12' : a + '-' + ('0' + (m - 1)).slice(-2);
+}
+
+function filasHorarios() {
+  const h = hojaHorarios();
+  const n = h.getLastRow() - 1;
+  if (n < 1) return [];
+  return h.getRange(2, 1, n, 3).getDisplayValues();
+}
+
+function parsear(t) {
+  try {
+    return t ? JSON.parse(t) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function leerHorario(mes) {
+  const m = mesValido(mes);
+  const ant = mesAnterior(m);
+  const out = { mes: m, horario: null, actualizado: '', anterior: null, mesAnterior: ant, config: null, meses: [] };
+  filasHorarios().forEach(function (f) {
+    if (f[0] === m) {
+      out.horario = parsear(f[1]);
+      out.actualizado = f[2];
+    } else if (f[0] === ant) out.anterior = parsear(f[1]);
+    else if (f[0] === 'config') out.config = parsear(f[1]);
+    if (/^20\d\d-\d\d$/.test(f[0])) out.meses.push(f[0]);
+  });
+  out.meses.sort();
+  return out;
+}
+
+function mesesGuardados() {
+  return filasHorarios()
+    .filter(function (f) {
+      return /^20\d\d-\d\d$/.test(f[0]) && f[1];
+    })
+    .map(function (f) {
+      return { mes: f[0], actualizado: f[2] };
+    })
+    .sort(function (a, b) {
+      return a.mes < b.mes ? 1 : -1;
+    });
+}
+
+function guardarDato(id, valor) {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) throw new Error('horario');
+  const t = JSON.stringify(valor);
+  if (t.length > MAX_HORARIO) throw new Error('horario-grande');
+  const h = hojaHorarios();
+  const i = filaFoto(h, id);
+  const ahora = new Date().toISOString();
+  if (i >= 0) h.getRange(i + 2, 1, 1, 3).setValues([[id, t, ahora]]);
+  else h.appendRow([id, t, ahora]);
+  return ahora;
+}
+
 function prepararHoja() {
+  hojaHorarios();
   mapa(hoja(), COLUMNAS);
   hojaFotos();
   mapa(hojaCon(HOJA_CASAS, COLUMNAS_CASAS), COLUMNAS_CASAS);

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Subir from '../components/Subir.jsx';
+import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import { SECCIONES } from '../lib/casas.js';
 import { claveFinde } from '../lib/seleccion.js';
 import { fechaCorta, viernesADomingo } from '../lib/text.js';
@@ -98,7 +99,7 @@ function Hoja({ h }) {
   );
 }
 
-export default function Casas({ horario, analisis, errorAnalisis, personal, marcas, setMarcas, onHorario, onPdf, generando }) {
+export default function Casas({ horario, analisis, errorAnalisis, personal, marcas, setMarcas, onHorario, onHorarioApp, onPdf, generando }) {
   const hoy = new Date();
   const inicial = useMemo(() => {
     if (!analisis) return 0;
@@ -122,6 +123,7 @@ export default function Casas({ horario, analisis, errorAnalisis, personal, marc
       <div className="uploads">
         <Subir etiqueta="Horario del mes" tipo="horario" estado={horario} onArchivo={onHorario} ayuda="El mismo horario que usas en Acuerdos (PDF o Excel)" />
       </div>
+      <HorarioGuardado onElegir={onHorarioApp} />
       {errorAnalisis && (
         <div className="alert bad" role="alert">
           <b>No pude leer el horario</b>
