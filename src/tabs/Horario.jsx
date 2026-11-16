@@ -45,7 +45,11 @@ import {
   desdeExcel,
   casasDe,
   esDeUnaCasa,
-  ROLES
+  ROLES,
+  ponerNota,
+  ponerObs,
+  MAX_NOTA,
+  MAX_OBS
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -96,7 +100,11 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
   const [toda, setToda] = useState(true);
   const bloque = ctx.bloque(d);
   const conBloque = (k === ON_CALL || ctx.finde(d)) && bloque.length > 1;
-  const gente = activos(ctx.config, ctx.clave);
+  const todos = activos(ctx.config, ctx.clave);
+  const hayOc = todos.some((p) => p.oc);
+  const deAqui = (p) => (k === ON_CALL ? !hayOc || p.oc : casasDe(p).includes(k));
+  const gente = todos.filter((p) => deAqui(p) || actuales.includes(p.id));
+  const ocultos = todos.length - gente.length;
   const lista = gente.map((p) => ({ p, m: actuales.includes(p.id) ? '' : ctx.motivo(p.id, d, k) }));
   const extra = actuales.filter((id) => !gente.some((p) => p.id === id)).map((id) => ({ p: { id, n: ctx.nombre(id) }, m: '' }));
   const si = [...extra, ...lista.filter((x) => !x.m)].sort((a, b) => actuales.includes(b.p.id) - actuales.includes(a.p.id) || esDeUnaCasa(b.p, k) - esDeUnaCasa(a.p, k) || (b.p.pref === k) - (a.p.pref === k) || a.p.n.localeCompare(b.p.n, 'es'));
@@ -107,7 +115,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
     <label key={p.id}>
       <input type="checkbox" checked={sel.includes(p.id)} onChange={(e) => setSel((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
       <span>{p.n}</span>
-      <span className="r">{m || (esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : '')}</span>
+      <span className="r">{m || (esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : p.id && ctx.porId.get(p.id) && !deAqui(ctx.porId.get(p.id)) ? (k === ON_CALL ? 'no hace on call' : `no va a ${k}`) : '')}</span>
     </label>
   );
   const abiertoNo = verNo || !si.length;
@@ -117,7 +125,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
         {k === ON_CALL ? 'On call' : k} · {DIAS_LARGO[ctx.wd(d)]} {d} de {MESES[ctx.mes]}
       </h3>
       <p className="hint">{pide}</p>
-      <div className="h-opc">{si.length ? si.map(fila) : <p className="hint">Nadie está libre según las reglas. Si igual quieres poner a alguien, elígelo abajo.</p>}</div>
+      <div className="h-opc">{si.length ? si.map(fila) : <p className="hint">{no.length ? 'Nadie está libre ese día. Si igual quieres poner a alguien, elígelo abajo.' : k === ON_CALL ? 'Nadie tiene marcado “On call” en Personal y reglas.' : `Nadie tiene marcada ${k} en Personal y reglas.`}</p>}</div>
       {no.length > 0 && (
         <>
           <button type="button" className="btn-link h-vermas" onClick={() => setVerNo(!abiertoNo)}>
@@ -125,6 +133,11 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
           </button>
           {abiertoNo && <div className="h-opc apagado">{no.map(fila)}</div>}
         </>
+      )}
+      {ocultos > 0 && (
+        <p className="hint h-solo">
+          Solo salen {k === ON_CALL ? 'las personas que hacen on call' : `las personas que trabajan en ${k}`}. Para cambiar a dónde va cada uno, abre “Personal y reglas”.
+        </p>
       )}
       {conBloque && (
         <label className="h-toda">
@@ -142,6 +155,34 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
           Cancelar
         </button>
         <button type="button" className="h-btn prim" id="h-elegir-ok" onClick={() => onListo(sel, conBloque && toda)}>
+          Listo
+        </button>
+      </div>
+    </>
+  );
+}
+
+function EditarTexto({ titulo, ayuda, inicial, max, filas, ejemplo, onGuardar, onCerrar, id }) {
+  const [t, setT] = useState(inicial || '');
+  return (
+    <>
+      <h3>{titulo}</h3>
+      <p className="hint">{ayuda}</p>
+      <textarea id={id} className="h-nota-txt" rows={filas} maxLength={max} value={t} placeholder={ejemplo} autoFocus onChange={(e) => setT(e.target.value)} />
+      <span className="hint h-cuenta">
+        {t.length} / {max}
+      </span>
+      <div className="h-acc">
+        {inicial && (
+          <button type="button" className="h-btn h-borrar" onClick={() => onGuardar('')}>
+            Borrar
+          </button>
+        )}
+        <span className="esp" />
+        <button type="button" className="h-btn" onClick={onCerrar}>
+          Cancelar
+        </button>
+        <button type="button" className="h-btn prim" id={`${id}-ok`} onClick={() => onGuardar(t)}>
           Listo
         </button>
       </div>
@@ -564,7 +605,7 @@ export default function Horario({ personal, avisar }) {
   };
 
   const llenar = (desdeCero) => {
-    const base = desdeCero ? { dias: {}, vac: horario ? horario.vac : [], fer: horario ? horario.fer : [] } : horario;
+    const base = desdeCero ? { ...horarioVacio(), vac: horario ? horario.vac : [], fer: horario ? horario.fer : [], notas: horario ? horario.notas : {}, obs: horario ? horario.obs : '' } : horario;
     const r = armar(clave, base, config, anterior);
     setHorario(r.horario);
     setNuevos(desdeCero ? [] : (n) => [...n, ...r.nuevos]);
@@ -594,7 +635,7 @@ export default function Horario({ personal, avisar }) {
       }
       const r = desdeExcel(an.dias, personal, config);
       setConfig(r.config);
-      setHorario({ ...r.horario, vac: horario ? horario.vac : [], fer: Array.from(new Set([...(horario ? horario.fer : []), ...(an.feriados || [])])).sort((x, y) => x - y) });
+      setHorario({ ...r.horario, vac: horario ? horario.vac : [], fer: Array.from(new Set([...(horario ? horario.fer : []), ...(an.feriados || [])])).sort((x, y) => x - y), notas: { ...(horario ? horario.notas : {}), ...(an.notas || {}) }, obs: [horario ? horario.obs : '', an.obs || ''].filter(Boolean).join(' · ').slice(0, MAX_OBS) });
       setNotas(r.agregados.length ? [`Agregué al personal a: ${r.agregados.join(', ')}`] : []);
       setNuevos([]);
       avisar(`Leí el horario de ${soloMes(clave)}. Revísalo y toca “Guardar horario”.`);
@@ -698,6 +739,24 @@ export default function Horario({ personal, avisar }) {
                 {hueco(post, 'td')}
               </tr>
             ))}
+            <tr className="nota-fila">
+              <th className="puesto">
+                <i className="nota-ico" aria-hidden="true">✎</i>
+                Notas
+              </th>
+              {hueco(pre, 'td')}
+              {dias.map((d) => {
+                const t = horario.notas[d];
+                return (
+                  <td key={d} className={ctx.finde(d) ? 'fin' : ''}>
+                    <button type="button" className={`h-celda h-nota${t ? ' con' : ''}`} data-nota={d} onClick={() => setVentana({ tipo: 'nota', d })} aria-label={t ? `Nota del ${d}: ${t}` : `Agregar nota al ${d}`}>
+                      {t || <span className="mas">+ nota</span>}
+                    </button>
+                  </td>
+                );
+              })}
+              {hueco(post, 'td')}
+            </tr>
           </tbody>
         </table>
       </div>
@@ -710,7 +769,12 @@ export default function Horario({ personal, avisar }) {
       <div key={d} className={`h-dia${ctx.finde(d) ? ' fin' : ''}${falta ? ' mal' : ''}`}>
         <div className="dh">
           <b>{d}</b>
-          {horario.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">falta {falta}</span> : null}
+          <span className="dh-der">
+            {horario.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">falta {falta}</span> : null}
+            <button type="button" className={`h-lapiz${horario.notas[d] ? ' con' : ''}`} data-nota={d} title={horario.notas[d] ? 'Editar nota' : 'Agregar nota'} aria-label={horario.notas[d] ? `Editar nota del ${d}` : `Agregar nota al ${d}`} onClick={() => setVentana({ tipo: 'nota', d })}>
+              ✎
+            </button>
+          </span>
         </div>
         {PUESTOS.map((k) => {
           const l = nombres(d, k);
@@ -733,6 +797,11 @@ export default function Horario({ personal, avisar }) {
             </button>
           );
         })}
+        {horario.notas[d] && (
+          <button type="button" className="h-dia-nota" onClick={() => setVentana({ tipo: 'nota', d })}>
+            {horario.notas[d]}
+          </button>
+        )}
       </div>
     );
   };
@@ -851,6 +920,12 @@ export default function Horario({ personal, avisar }) {
         </div>
         {ctx.revisa ? aviso(modo === 'semana' ? delaSemana : todos, modo) : <p className="hint">Este mes es anterior a las reglas nuevas, así que la app no lo revisa.</p>}
         {notas.length > 0 && <p className="hint">{notas.join(' · ')}</p>}
+        {horario.obs && (
+          <button type="button" className="h-obs" id="h-obs-ver" onClick={() => setVentana({ tipo: 'obs' })}>
+            <b>Observaciones del mes</b>
+            <span>{horario.obs}</span>
+          </button>
+        )}
         {modo === 'semana' ? (
           tablaSemana(Math.min(sem, ctx.semanas - 1))
         ) : (
@@ -878,6 +953,11 @@ export default function Horario({ personal, avisar }) {
           <button type="button" className="btn-link" onClick={() => setVentana({ tipo: 'resumen' })}>
             Ver resumen del mes
           </button>
+          {!horario.obs && (
+            <button type="button" className="btn-link" id="h-obs-agregar" onClick={() => setVentana({ tipo: 'obs' })}>
+              Agregar observaciones del mes
+            </button>
+          )}
           <button type="button" className="btn-link" id="h-resubir" disabled={ocupado === 'subir'} onClick={() => archivo.current.click()}>
             Subir Excel de {soloMes(clave)}
           </button>
@@ -1031,6 +1111,45 @@ export default function Horario({ personal, avisar }) {
             Listo
           </button>
         </div>
+      </Ventana>
+
+      <Ventana abierta={ventana?.tipo === 'nota'} onCerrar={() => setVentana(null)} etiqueta="Nota del día">
+        {ventana?.tipo === 'nota' && horario && (
+          <EditarTexto
+            key={`nota${ventana.d}`}
+            id="h-nota"
+            titulo={`Nota del ${DIAS_LARGO[ctx.wd(ventana.d)]} ${ventana.d} de ${MESES[ctx.mes]}`}
+            ayuda="Sale en ese día del horario, en el PDF y en el Excel."
+            ejemplo="Ej. Marivid de 2 a 8 solo este día"
+            inicial={horario.notas[ventana.d] || ''}
+            max={MAX_NOTA}
+            filas={3}
+            onCerrar={() => setVentana(null)}
+            onGuardar={(t) => {
+              cambiar(ponerNota(horario, ventana.d, t));
+              setVentana(null);
+            }}
+          />
+        )}
+      </Ventana>
+
+      <Ventana abierta={ventana?.tipo === 'obs'} onCerrar={() => setVentana(null)} etiqueta="Observaciones del mes">
+        {ventana?.tipo === 'obs' && horario && (
+          <EditarTexto
+            id="h-obs"
+            titulo={`Observaciones de ${soloMes(clave)}`}
+            ayuda="Algo general del mes. Sale arriba del horario en la app, y abajo en el PDF y en el Excel."
+            ejemplo="Ej. En las vacaciones de navidad los niños salen el 23. Reunión de personal el 15."
+            inicial={horario.obs}
+            max={MAX_OBS}
+            filas={5}
+            onCerrar={() => setVentana(null)}
+            onGuardar={(t) => {
+              cambiar(ponerObs(horario, t));
+              setVentana(null);
+            }}
+          />
+        )}
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'rearmar'} onCerrar={() => setVentana(null)} etiqueta="Volver a armar">

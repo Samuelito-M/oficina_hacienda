@@ -35,7 +35,7 @@ export function tituloHorario(clave) {
 }
 
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font><font><b/><sz val="13"/><color rgb="FFB26A00"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2F3437"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEEE9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF3DD"/></patternFill></fill></fills><borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top style="thin"><color rgb="FF8A8A8A"/></top><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font><font><b/><sz val="13"/><color rgb="FFB26A00"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2F3437"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEEE9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF3DD"/></patternFill></fill></fills><borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top style="thin"><color rgb="FF8A8A8A"/></top><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 export async function generarExcelHorario(clave, horario, config, JSZip) {
   const { anio, mes } = partesMes(clave);
@@ -50,7 +50,8 @@ export async function generarExcelHorario(clave, horario, config, JSZip) {
     filas.push(`<row r="${r}" ht="20" customHeight="1">${sem.map((d, i) => c(`${COLS[i]}${r}`, d == null ? '' : fer.has(d) ? `FERIADO ${d}` : String(d), d != null && fer.has(d) ? 4 : 3)).join('')}</row>`);
     r++;
     const hayVac = sem.some((d) => d != null && horario.vac.some((v) => d >= v.de && d <= v.a));
-    const lineas = [...PUESTOS, ...(hayVac ? ['vac'] : [])];
+    const hayNota = sem.some((d) => d != null && horario.notas && horario.notas[d]);
+    const lineas = [...PUESTOS, ...(hayVac ? ['vac'] : []), ...(hayNota ? ['nota'] : [])];
     lineas.forEach((k, li) => {
       const ultimo = li === lineas.length - 1;
       filas.push(
@@ -58,7 +59,9 @@ export async function generarExcelHorario(clave, horario, config, JSZip) {
           .map((d, i) => {
             let t = '';
             if (d != null) {
-              if (k === 'vac') {
+              if (k === 'nota') {
+                t = (horario.notas && horario.notas[d]) || '';
+              } else if (k === 'vac') {
                 const vs = horario.vac.filter((v) => d >= v.de && d <= v.a).map((v) => nombre.get(v.id) || v.id);
                 t = vs.length ? `VACACIÓN ${vs.join('-')}` : '';
               } else {
@@ -73,8 +76,15 @@ export async function generarExcelHorario(clave, horario, config, JSZip) {
       r++;
     });
   }
+  const merges = ['A1:G1'];
+  if (horario.obs) {
+    r++;
+    filas.push(`<row r="${r}" ht="${Math.min(120, 18 + Math.ceil(horario.obs.length / 150) * 15)}" customHeight="1">${c(`A${r}`, `Observaciones: ${horario.obs}`, 7)}</row>`);
+    merges.push(`A${r}:G${r}`);
+    r++;
+  }
   const hoja = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:G${r - 1}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols><col min="1" max="7" width="27" customWidth="1"/></cols><sheetData>${filas.join('')}</sheetData><mergeCells count="1"><mergeCell ref="A1:G1"/></mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="1"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:G${r - 1}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols><col min="1" max="7" width="27" customWidth="1"/></cols><sheetData>${filas.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="1"/></worksheet>`;
   const zip = new JSZip();
   const o = { createFolders: false };
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -134,13 +144,14 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
   const top = H - M - 34;
   const cabH = 16;
   const colW = (W - 2 * M) / 7;
-  const filaH = (top - cabH - M) / sems.length;
+  const obsLineas = horario.obs ? partir(`Observaciones: ${horario.obs}`, R, 8.5, W - 2 * M - 12).slice(0, 3) : [];
+  const piso = M + (obsLineas.length ? obsLineas.length * 11 + 10 : 0);
+  const filaH = (top - cabH - piso) / sems.length;
   ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].forEach((d, i) => {
     page.drawRectangle({ x: M + i * colW, y: top - cabH, width: colW, height: cabH, color: tinta });
     page.drawText(d, { x: M + i * colW + 6, y: top - cabH + 4.5, size: 8.5, font: B, color: blanco });
   });
-  const size = sems.length >= 6 ? 6.6 : 7.4;
-  const paso = size + 2.1;
+  const base = sems.length >= 6 ? 6.6 : 7.4;
   sems.forEach((sem, si) => {
     const yTop = top - cabH - si * filaH;
     sem.forEach((d, i) => {
@@ -149,19 +160,42 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
       if (d == null) return;
       page.drawText(String(d), { x: x + 5, y: yTop - 13, size: 11.5, font: B, color: tinta });
       if (fer.has(d)) page.drawText('FERIADO', { x: x + 5 + B.widthOfTextAtSize(String(d), 11.5) + 5, y: yTop - 12, size: 6.5, font: B, color: PDFLib.rgb(0.7, 0.42, 0) });
+      const vs = horario.vac.filter((v) => d >= v.de && d <= v.a).map((v) => nombre.get(v.id) || v.id);
+      const nota = horario.notas && horario.notas[d];
+      const armarDia = (size) => {
+        const bloques = [];
+        for (const k of PUESTOS) {
+          const ids = en(horario, d, k);
+          if (k === ON_CALL && !ids.length) continue;
+          const etW = k === ON_CALL ? 26 : 15;
+          const texto = ids.map((id) => nombre.get(id) || id).join(', ');
+          bloques.push({ k, etW, lineas: texto ? partir(texto, R, size, colW - etW - 12) : [''] });
+        }
+        const extra = [];
+        if (vs.length) extra.push({ t: partir(`Vacación: ${vs.join(', ')}`, R, size - 0.6, colW - 10), color: gris });
+        if (nota) extra.push({ t: partir(`Nota: ${nota}`, R, size - 0.4, colW - 10), color: PDFLib.rgb(0.6, 0.38, 0) });
+        const filas = bloques.reduce((a, b2) => a + b2.lineas.length, 0) + extra.reduce((a, e) => a + e.t.length, 0);
+        return { bloques, extra, filas, extras: bloques.length };
+      };
+      const disponible = filaH - 13 - 6;
+      let size = base;
+      let dia = armarDia(size);
+      let paso = size + 2.1;
+      const alto = (dd, ps) => dd.filas * ps + dd.extras * 1.2;
+      while (alto(dia, paso) > disponible && size > 5.2) {
+        size -= 0.3;
+        paso = Math.max(size + 1.1, Math.min(size + 2.1, (disponible - dia.extras * 1.2) / dia.filas));
+        dia = armarDia(size);
+      }
+      paso = Math.max(size + 1.1, Math.min(size + 2.1, (disponible - dia.extras * 1.2) / Math.max(1, dia.filas)));
       let y = yTop - 13 - paso - 2;
-      const minY = yTop - filaH + 3;
-      for (const k of PUESTOS) {
-        const ids = en(horario, d, k);
-        if (k === ON_CALL && !ids.length) continue;
+      const minY = yTop - filaH + 2;
+      for (const { k, etW, lineas } of dia.bloques) {
         if (y < minY) break;
-        const et = CORTO[k];
-        const etW = k === ON_CALL ? 26 : 15;
         page.drawRectangle({ x: x + 4, y: y - 1.6, width: etW, height: size + 1.6, color: rgb(PDFLib, COLOR_PUESTO[k]) });
         const es = size - 1.4;
+        const et = CORTO[k];
         page.drawText(et, { x: x + 4 + (etW - B.widthOfTextAtSize(et, es)) / 2, y: y + 0.2, size: es, font: B, color: blanco });
-        const texto = ids.map((id) => nombre.get(id) || id).join(', ');
-        const lineas = texto ? partir(texto, R, size, colW - etW - 12) : [''];
         for (const l of lineas) {
           if (y < minY) break;
           page.drawText(l, { x: x + 4 + etW + 4, y, size, font: R, color: tinta });
@@ -169,10 +203,20 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
         }
         y -= 1.2;
       }
-      const vs = horario.vac.filter((v) => d >= v.de && d <= v.a).map((v) => nombre.get(v.id) || v.id);
-      if (vs.length && y >= minY) page.drawText(partir(`Vacación: ${vs.join(', ')}`, R, size - 0.8, colW - 10)[0], { x: x + 4, y, size: size - 0.8, font: R, color: gris });
+      for (const e of dia.extra) {
+        for (const l of e.t) {
+          if (y < minY) break;
+          page.drawText(l, { x: x + 4, y, size: size - 0.4, font: R, color: e.color });
+          y -= paso;
+        }
+      }
     });
   });
+  if (obsLineas.length) {
+    const alto = obsLineas.length * 11 + 6;
+    page.drawRectangle({ x: M, y: M, width: W - 2 * M, height: alto, color: PDFLib.rgb(1, 0.97, 0.9), borderColor: linea, borderWidth: 0.7 });
+    obsLineas.forEach((l, i) => page.drawText(l, { x: M + 6, y: M + alto - 12 - i * 11, size: 8.5, font: R, color: tinta }));
+  }
   return pdf.save();
 }
 

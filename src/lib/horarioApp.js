@@ -84,8 +84,24 @@ export const esDeUnaCasa = (p, k) => !!p && p.rol === 'padre' && casasDe(p)[0] =
 export const activo = (p, clave) => !!p && (!p.hasta || clave <= p.hasta);
 export const activos = (config, clave) => config.personal.filter((p) => activo(p, clave));
 
+export const MAX_NOTA = 200;
+export const MAX_OBS = 600;
+const limpiarTexto = (t, max) => String(t == null ? '' : t).replace(/[\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+
 export function horarioVacio() {
-  return { dias: {}, vac: [], fer: [] };
+  return { dias: {}, vac: [], fer: [], notas: {}, obs: '' };
+}
+
+export function ponerNota(h, d, texto) {
+  const t = limpiarTexto(texto, MAX_NOTA);
+  const notas = { ...(h.notas || {}) };
+  if (t) notas[d] = t;
+  else delete notas[d];
+  return { ...h, notas };
+}
+
+export function ponerObs(h, texto) {
+  return { ...h, obs: limpiarTexto(texto, MAX_OBS) };
 }
 
 export function normalizarHorario(h) {
@@ -101,6 +117,13 @@ export function normalizarHorario(h) {
   }
   if (Array.isArray(h.vac)) out.vac = h.vac.filter((v) => v && v.id && +v.de >= 1 && +v.a >= +v.de).map((v) => ({ id: String(v.id), de: +v.de, a: +v.a }));
   if (Array.isArray(h.fer)) out.fer = Array.from(new Set(h.fer.map(Number).filter((d) => d >= 1 && d <= 31))).sort((a, b) => a - b);
+  if (h.notas && typeof h.notas === 'object') {
+    for (const d of Object.keys(h.notas).map(Number).filter((x) => x >= 1 && x <= 31).sort((a, b) => a - b)) {
+      const t = limpiarTexto(h.notas[d], MAX_NOTA);
+      if (t) out.notas[d] = t;
+    }
+  }
+  out.obs = limpiarTexto(h.obs, MAX_OBS);
   return out;
 }
 
@@ -233,7 +256,7 @@ export function copiarAnterior(clave, anterior, config, base) {
   const nAnt = diasDelMes(ant.anio, ant.mes);
   const ferAnt = new Set(anterior.fer || []);
   const ids = new Set(activos(config, clave).map((p) => p.id));
-  let h = { dias: {}, vac: base ? base.vac : [], fer: base ? base.fer : [] };
+  let h = { dias: {}, vac: base ? base.vac : [], fer: base ? base.fer : [], notas: base && base.notas ? base.notas : {}, obs: base && base.obs ? base.obs : '' };
   const quitados = [];
   const n = diasDelMes(anio, mes);
   const filaDe = (a, m, d) => Math.floor((d - 1 + new Date(a, m, 1).getDay()) / 7);

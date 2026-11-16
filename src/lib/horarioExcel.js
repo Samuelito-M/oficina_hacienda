@@ -113,6 +113,8 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
   const tokenizar = construirTokenizador(personal);
   const dias = {};
   const feriados = [];
+  const notas = {};
+  const obs = [];
   const porFila = new Map(h.filas.map((f) => [f.r, f.celdas]));
   numFilas.forEach((nf, i) => {
     const desde = nf.r + 1;
@@ -129,11 +131,16 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
         const celdas = porFila.get(r);
         if (!celdas || !celdas[c]) continue;
         const t = collapse(celdas[c]);
-        if (/^\s*(casa\s*\w*|esther|on\s*call)\s*:/i.test(fold(t))) lineas.push(t);
+        const ft = fold(t).trim();
+        if (/^\s*(casa\s*\w*|esther|on\s*call)\s*:/i.test(ft)) lineas.push(t);
+        else if (/^observaciones?\s*:/.test(ft)) obs.push(t.replace(/^[^:]*:\s*/, ''));
+        else if (t.trim() && !/^(desc|vacaci|feriado|\d{1,2}$)/.test(ft)) (notas[d] = notas[d] || []).push(t.trim());
       }
       dias[d] = { texto: lineas.join(' | '), ...leerCelda(lineas.join(' '), tokenizar) };
     }
   });
   for (let d = 1; d <= diasDelMes; d++) if (!(d in dias)) dias[d] = null;
-  return { ...armarResultado(mes, anio, dias), feriados: feriados.sort((a, b) => a - b) };
+  const notasTexto = {};
+  for (const [d, l] of Object.entries(notas)) if (dias[d]) notasTexto[d] = Array.from(new Set(l)).join(' · ');
+  return { ...armarResultado(mes, anio, dias), feriados: feriados.sort((a, b) => a - b), notas: notasTexto, obs: Array.from(new Set(obs)).join(' · ') };
 }
