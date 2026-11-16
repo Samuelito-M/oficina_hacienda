@@ -440,9 +440,9 @@ dialog.h-dlg::backdrop{background:rgba(20,24,32,.5)}
 .h-fila{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .h-fila input,.h-fila select,.h-persona select,.h-nec input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}
 .h-fila input:not(.num){flex:1 1 140px}
-.h-fila input.num,.h-nec input{width:72px}
+.h-fila input.num{width:72px}
 .h-err{color:var(--bad);font-size:14px;font-weight:600}
-.h-persona{display:grid;grid-template-columns:minmax(0,1.3fr) auto auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.h-persona{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .h-persona .nom{display:flex;flex-direction:column;gap:4px;min-width:0}
 .h-persona select{padding:4px 6px;font-size:13px;color:var(--muted);max-width:170px}
 .h-persona .oc{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}
@@ -453,9 +453,6 @@ dialog.h-dlg::backdrop{background:rgba(20,24,32,.5)}
 .h-x:hover{background:var(--bad-soft);color:var(--bad)}
 .h-x.si{background:var(--bad);color:#fff}
 .h-lista>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
-.h-nec{display:grid;grid-template-columns:1fr 84px 84px;gap:8px;align-items:center;font-size:14.5px}
-.h-nec.cab{font-size:12px;color:var(--muted)}
-.h-nec i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
 .h-bajar{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .h-bajar button{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:14px;padding:18px 14px;text-align:left;display:flex;flex-direction:column;gap:4px}
 .h-bajar button:hover{border-color:var(--accent)}
@@ -465,5 +462,19 @@ table.h-res{width:100%;border-collapse:collapse;font-size:14.5px}
 .h-res th,.h-res td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
 .h-res th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .h-res td:not(:first-child),.h-res th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
-@media (max-width:640px){.h-persona{grid-template-columns:1fr auto}.h-persona .h-dias{grid-column:1/-1}.h-bajar{grid-template-columns:1fr}.h-cab h2{font-size:22px}.h-mesnav span{min-width:120px}.h-guardar{font-size:14px;gap:10px;text-align:center}}
+@media (max-width:760px){.h-persona{display:flex;flex-wrap:wrap;gap:8px 12px}.h-persona .nom{flex:1 0 100%}.h-casas button{min-width:32px}.h-dias button{width:28px}}
+@media (max-width:640px){.h-bajar{grid-template-columns:1fr}.h-cab h2{font-size:22px}.h-mesnav span{min-width:120px}.h-guardar{font-size:14px;gap:10px;text-align:center}}
 .h-usar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:-10px;font-size:14px}.h-usar .btn-link{padding-left:0}
+.h-casas{display:inline-flex;gap:3px}
+.h-casas button{min-width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:11.5px;font-weight:700;color:var(--muted);padding:0 5px}
+.h-casas button[aria-pressed="true"]{color:#fff}
+.h-persona .nom .h-err{font-size:12px}
+.h-toda{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border-radius:12px;padding:12px;cursor:pointer;font-weight:600}
+.h-toda input{width:20px;height:20px;accent-color:var(--accent);flex:none;margin-top:2px}
+.h-toda small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+table.h-nec{border-collapse:collapse;font-size:14.5px;min-width:520px;width:100%}
+.h-nec th,.h-nec td{padding:5px 4px;text-align:center}
+.h-nec thead th{font-size:12px;color:var(--muted);font-weight:600}
+.h-nec tbody th{text-align:left;font-weight:600;white-space:nowrap}
+.h-nec i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+.h-nec input{width:52px;text-align:center;padding:7px 4px}

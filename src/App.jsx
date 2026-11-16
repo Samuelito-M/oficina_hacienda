@@ -20,7 +20,7 @@ import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib
 
 const TABS = ['acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.4';
+const VERSION = '1.5';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');

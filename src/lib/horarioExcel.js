@@ -80,13 +80,17 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
   const { mes, anio } = info;
   const diasDelMes = new Date(anio, mes + 1, 0).getDate();
   let mejor = null;
+  const feriadoEn = {};
   for (const h of hojas) {
     const numFilas = h.filas
       .map((f) => {
         const nums = {};
         for (const [c, v] of Object.entries(f.celdas)) {
           const m = fold(v).trim().match(NUMERO);
-          if (m && +m[1] >= 1 && +m[1] <= 31) nums[c] = +m[1];
+          if (m && +m[1] >= 1 && +m[1] <= 31) {
+            nums[c] = +m[1];
+            if (/^feriado/.test(fold(v).trim())) (feriadoEn[f.r] = feriadoEn[f.r] || {})[c] = true;
+          }
         }
         return { r: f.r, nums, n: Object.keys(nums).length };
       })
@@ -108,6 +112,7 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
   for (const [c, v] of Object.entries(votos)) dowDe[c] = v.indexOf(Math.max(...v));
   const tokenizar = construirTokenizador(personal);
   const dias = {};
+  const feriados = [];
   const porFila = new Map(h.filas.map((f) => [f.r, f.celdas]));
   numFilas.forEach((nf, i) => {
     const desde = nf.r + 1;
@@ -118,6 +123,7 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
       if (i === 0 && d > 20) continue;
       if (i === numFilas.length - 1 && d < 8 && numFilas.length > 4) continue;
       if (dias[d]) continue;
+      if (feriadoEn[nf.r] && feriadoEn[nf.r][c]) feriados.push(d);
       const lineas = [];
       for (let r = desde; r <= hasta; r++) {
         const celdas = porFila.get(r);
@@ -129,5 +135,5 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
     }
   });
   for (let d = 1; d <= diasDelMes; d++) if (!(d in dias)) dias[d] = null;
-  return armarResultado(mes, anio, dias);
+  return { ...armarResultado(mes, anio, dias), feriados: feriados.sort((a, b) => a - b) };
 }

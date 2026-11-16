@@ -8,7 +8,8 @@ export const COLOR_PUESTO = { 'Casa 1': '#24A9C2', 'Casa 2': '#E44D64', 'Casa 3'
 export const CORTO = { 'Casa 1': 'C1', 'Casa 2': 'C2', 'Casa 3': 'C3', 'Casa 4': 'C4', 'Casa Esther': 'Est', [ON_CALL]: 'On call' };
 export const DIAS_SEM = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 export const DIAS_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-export const NEC_BASE = { 'Casa 1': [1, 2], 'Casa 2': [1, 2], 'Casa 3': [2, 2], 'Casa 4': [1, 2], 'Casa Esther': [1, 1] };
+const semana7 = (entre, fin) => [fin, entre, entre, entre, entre, fin, fin];
+export const NEC_BASE = { 'Casa 1': semana7(1, 2), 'Casa 2': semana7(1, 2), 'Casa 3': semana7(2, 2), 'Casa 4': semana7(1, 2), 'Casa Esther': semana7(1, 1) };
 export const MAX_SEMANA = 5;
 
 export const claveMes = (anio, mes) => `${anio}-${String(mes + 1).padStart(2, '0')}`;
@@ -22,7 +23,7 @@ export const diasDelMes = (anio, mes) => new Date(anio, mes + 1, 0).getDate();
 
 export function configInicial() {
   return {
-    personal: PERSONAL_BASE.filter((p) => !['jauna', 'fredy', 'ingrit'].includes(p.id)).map((p) => ({ id: p.id, n: p.nombre, padre: p.fijo ? p.casa : '', dias: p.fijo ? [0, 5, 6] : [0, 1, 2, 3, 4, 5, 6], oc: false })),
+    personal: PERSONAL_BASE.filter((p) => !['jauna', 'fredy', 'ingrit'].includes(p.id)).map((p) => ({ id: p.id, n: p.nombre, casas: p.fijo ? [p.casa] : null, dias: p.fijo ? [0, 5, 6] : [0, 1, 2, 3, 4, 5, 6], oc: false })),
     nec: JSON.parse(JSON.stringify(NEC_BASE))
   };
 }
@@ -33,14 +34,66 @@ export function normalizarConfig(c) {
   const personal = Array.isArray(c.personal)
     ? c.personal
         .filter((p) => p && typeof p.id === 'string' && p.id && typeof p.n === 'string' && p.n.trim())
-        .map((p) => ({ id: p.id, n: p.n.trim(), padre: CASAS.includes(p.padre) ? p.padre : '', dias: Array.isArray(p.dias) ? p.dias.filter((d) => d >= 0 && d <= 6) : [0, 1, 2, 3, 4, 5, 6], oc: !!p.oc }))
+        .map((p) => ({ id: p.id, n: p.n.trim(), casas: Array.isArray(p.casas) ? CASAS.filter((c) => p.casas.includes(c)) : CASAS.includes(p.padre) ? [p.padre] : null, dias: Array.isArray(p.dias) ? p.dias.filter((d) => d >= 0 && d <= 6) : [0, 1, 2, 3, 4, 5, 6], oc: !!p.oc }))
     : base.personal;
   const nec = {};
   for (const casa of CASAS) {
-    const v = c.nec && Array.isArray(c.nec[casa]) ? c.nec[casa] : base.nec[casa];
-    nec[casa] = [Math.max(0, Math.min(6, +v[0] || 0)), Math.max(0, Math.min(6, +v[1] || 0))];
+    let v = c.nec && Array.isArray(c.nec[casa]) ? c.nec[casa] : base.nec[casa];
+    if (v.length === 2) v = semana7(v[0], v[1]);
+    nec[casa] = [0, 1, 2, 3, 4, 5, 6].map((w) => Math.max(0, Math.min(6, Math.floor(+v[w]) || 0)));
   }
-  return { personal, nec };
+  return c.v === 2 ? { v: 2, personal, nec } : { personal, nec };
+}
+
+export const casasDe = (p) => (p && Array.isArray(p.casas) ? p.casas : []);
+export const esDeUnaCasa = (p, k) => casasDe(p).length === 1 && casasDe(p)[0] === k;
+
+export function asignarCasas(config, fuentes, tambienVacias = false) {
+  const casas = {};
+  const dias = {};
+  const minimo = {};
+  let hayDatos = false;
+  for (const [fi, f] of fuentes.entries()) {
+    if (!f || !f.horario) continue;
+    const { anio, mes } = partesMes(f.clave);
+    const fer = new Set(f.horario.fer || []);
+    for (const [d, dia] of Object.entries(f.horario.dias)) {
+      const w = new Date(anio, mes, +d).getDay();
+      for (const c of CASAS) {
+        const k = `${c}|${w}`;
+        const cuantos = (dia[c] || []).length;
+        minimo[k] = k in minimo ? Math.min(minimo[k], cuantos) : cuantos;
+        for (const id of dia[c] || []) {
+          hayDatos = true;
+          (casas[id] = casas[id] || new Set()).add(c);
+          if (!fer.has(+d)) {
+            dias[id] = dias[id] || {};
+            const kd = `${fi}|${w}`;
+            dias[id][kd] = (dias[id][kd] || 0) + 1;
+            if (dias[id][kd] >= 2) dias[id][w] = true;
+          }
+        }
+      }
+    }
+  }
+  const vistas = (id) => CASAS.filter((c) => casas[id] && casas[id].has(c));
+  if (config.v !== 2 && hayDatos) {
+    const nec = {};
+    for (const c of CASAS) nec[c] = [0, 1, 2, 3, 4, 5, 6].map((w) => (`${c}|${w}` in minimo ? minimo[`${c}|${w}`] : config.nec[c][w]));
+    return {
+      ...config,
+      v: 2,
+      nec,
+      personal: config.personal.map((p) => ({
+        ...p,
+        casas: CASAS.filter((c) => (p.casas || []).includes(c) || (casas[p.id] && casas[p.id].has(c))),
+        dias: [0, 1, 2, 3, 4, 5, 6].filter((w) => (casas[p.id] ? !!(dias[p.id] && dias[p.id][w] === true) : p.dias.includes(w)) || (casas[p.id] && p.casas && p.casas.length === 1 && p.dias.includes(w)))
+      }))
+    };
+  }
+  const falta = (p) => p.casas == null || (tambienVacias && !p.casas.length);
+  if (!config.personal.some(falta)) return config;
+  return { ...config, personal: config.personal.map((p) => (falta(p) ? { ...p, casas: vistas(p.id) } : p)) };
 }
 
 export function horarioVacio() {
@@ -89,7 +142,7 @@ export function contexto(clave, horario, config) {
   const semanaDe = (d) => Math.floor((d - 1 + primer) / 7);
   const enVac = (id, d) => horario.vac.some((v) => v.id === id && d >= v.de && d <= v.a);
   const donde = (id, d) => CASAS.find((c) => en(horario, d, c).includes(id)) || '';
-  const necesita = (k, d) => (config.nec[k] ? config.nec[k][finde(d) ? 1 : 0] : 0);
+  const necesita = (k, d) => (config.nec[k] ? config.nec[k][wd(d)] : 0);
   const diasEnSemana = (id, s) => {
     let c = 0;
     for (let d = 1; d <= n; d++) if (semanaDe(d) === s && donde(id, d)) c++;
@@ -103,12 +156,18 @@ export function contexto(clave, horario, config) {
     if (k === ON_CALL) return '';
     const dd = donde(id, d);
     if (dd && dd !== k) return `ya está en ${dd}`;
-    if (!p.dias.includes(wd(d)) && !(fer.has(d) && p.padre)) return `no trabaja los ${DIAS_LARGO[wd(d)]}`;
-    if (p.padre && p.padre !== k) return `es de ${p.padre}`;
+    if (!casasDe(p).includes(k)) return casasDe(p).length ? `no va a ${k}` : 'no tiene casas marcadas';
+    if (!p.dias.includes(wd(d)) && !(fer.has(d) && casasDe(p).length === 1)) return `no trabaja los ${DIAS_LARGO[wd(d)]}`;
     if (!dd && diasEnSemana(id, semanaDe(d)) >= MAX_SEMANA) return `ya tiene ${MAX_SEMANA} días esa semana`;
     return '';
   };
-  return { clave, anio, mes, n, wd, finde, semanaDe, semanas: semanaDe(n) + 1, enVac, donde, necesita, motivo, nombre, porId, horario, config };
+  const semanaLaboral = (d) => {
+    const desde = d - ((wd(d) + 6) % 7);
+    const out = [];
+    for (let x = Math.max(1, desde); x <= Math.min(n, desde + 6); x++) out.push(x);
+    return out;
+  };
+  return { clave, anio, mes, n, wd, finde, semanaDe, semanaLaboral, semanas: semanaDe(n) + 1, enVac, donde, necesita, motivo, nombre, porId, horario, config };
 }
 
 export function diasDeSemana(ctx, s) {
@@ -151,12 +210,25 @@ export function copiarAnterior(clave, anterior, config, base) {
   let h = { dias: {}, vac: base ? base.vac : [], fer: base ? base.fer : [] };
   const quitados = [];
   const n = diasDelMes(anio, mes);
+  const filaDe = (a, m, d) => Math.floor((d - 1 + new Date(a, m, 1).getDay()) / 7);
+  const tabla = {};
+  for (let x = 1; x <= nAnt; x++) {
+    const wx = new Date(ant.anio, ant.mes, x).getDay();
+    if ((ferAnt.has(x) && wx >= 1 && wx <= 4) || !CASAS.some((c) => en(anterior, x, c).length)) continue;
+    tabla[`${filaDe(ant.anio, ant.mes, x)}|${wx}`] = x;
+  }
+  const saltos = [0, -2, 2, -4, 4, -1, 1, -3, 3, -5, 5];
   for (let d = 1; d <= n; d++) {
     const w = new Date(anio, mes, d).getDay();
-    const k = Math.floor((d - 1) / 7);
-    const occ = [];
-    for (let x = 1; x <= nAnt; x++) if (new Date(ant.anio, ant.mes, x).getDay() === w && !ferAnt.has(x) && CASAS.some((c) => en(anterior, x, c).length)) occ.push(x);
-    const src = occ[Math.min(k, occ.length - 1)];
+    const fila = filaDe(anio, mes, d);
+    let src = null;
+    for (const s of saltos) {
+      const x = tabla[`${fila + s}|${w}`];
+      if (x != null) {
+        src = x;
+        break;
+      }
+    }
     if (src == null) continue;
     for (const p of PUESTOS) {
       const lista = [];
@@ -206,16 +278,17 @@ export function completar(clave, horario, config, azar = Math.random) {
     ctx = contexto(clave, h, config);
   };
   for (let d = 1; d <= n; d++) {
-    for (const p of config.personal.filter((x) => x.padre)) {
-      if (ctx.finde(d) && !ctx.donde(p.id, d) && !ctx.motivo(p.id, d, p.padre) && en(h, d, p.padre).length < ctx.necesita(p.padre, d)) {
-        agregar(d, p.padre, p.id);
+    for (const p of config.personal.filter((x) => casasDe(x).length === 1)) {
+      const suya = p.casas[0];
+      if (!ctx.donde(p.id, d) && !ctx.motivo(p.id, d, suya) && en(h, d, suya).length < ctx.necesita(suya, d)) {
+        agregar(d, suya, p.id);
         usados[p.id]++;
         casas++;
       }
     }
     for (const c of CASAS) {
       while (en(h, d, c).length < ctx.necesita(c, d)) {
-        const cand = config.personal.filter((p) => !p.padre && !ctx.donde(p.id, d) && !ctx.motivo(p.id, d, c));
+        const cand = config.personal.filter((p) => !ctx.donde(p.id, d) && !ctx.motivo(p.id, d, c));
         if (!cand.length) break;
         const peso = new Map(cand.map((p) => [p.id, usados[p.id] + (azar() - 0.5) * 0.8]));
         cand.sort((a, b) => peso.get(a.id) - peso.get(b.id));
@@ -227,21 +300,41 @@ export function completar(clave, horario, config, azar = Math.random) {
   }
   const oc = config.personal.filter((p) => p.oc);
   let i = 0;
-  if (oc.length) {
-    for (let d = 1; d <= n; d++) {
-      if (en(h, d, ON_CALL).length) continue;
+  for (let d = 1; d <= n; d = ctx.semanaLaboral(d).slice(-1)[0] + 1) {
+    const dias = ctx.semanaLaboral(d);
+    const vacios = dias.filter((x) => !en(h, x, ON_CALL).length);
+    if (!vacios.length) continue;
+    const puesto = dias.map((x) => en(h, x, ON_CALL)).find((l) => l.length);
+    let ids = puesto ? puesto.filter((id) => ctx.porId.has(id)) : [];
+    if (!ids.length) {
+      if (!oc.length) continue;
+      const libres = (p) => vacios.filter((x) => !ctx.enVac(p.id, x)).length;
+      let mejor = null;
       for (let t = 0; t < oc.length; t++) {
         const p = oc[(i + t) % oc.length];
-        if (!ctx.enVac(p.id, d)) {
-          agregar(d, ON_CALL, p.id);
-          i = (i + t + 1) % oc.length;
-          calls++;
-          break;
-        }
+        if (!mejor || libres(p) > libres(mejor.p)) mejor = { p, t };
+        if (libres(p) === vacios.length) break;
       }
+      if (!libres(mejor.p)) continue;
+      ids = [mejor.p.id];
+      i = (i + mejor.t + 1) % oc.length;
+    }
+    for (const x of vacios) {
+      const ok = ids.filter((id) => !ctx.enVac(id, x));
+      for (const id of ok) {
+        agregar(x, ON_CALL, id);
+      }
+      if (ok.length) calls++;
     }
   }
   return { horario: h, nuevos, casas, calls };
+}
+
+export function ponerOnCall(ctx, d, ids, todaLaSemana) {
+  let h = ctx.horario;
+  const dias = todaLaSemana ? ctx.semanaLaboral(d) : [d];
+  for (const x of dias) h = poner(h, x, ON_CALL, x === d ? ids : ids.filter((id) => !ctx.enVac(id, x)));
+  return h;
 }
 
 export function quitarPersona(horario, id) {
@@ -274,14 +367,14 @@ export function resumenMes(ctx) {
   });
 }
 
-export function desdeExcel(dias, personalAcuerdos, config) {
+export function desdeExcel(dias, personalAcuerdos, config, clave, fer = []) {
   const nombreDe = new Map(personalAcuerdos.map((p) => [p.id, p.nombre]));
   let cfg = config;
   let h = horarioVacio();
   const agregados = [];
   const asegurar = (id, nombre) => {
     if (cfg.personal.some((p) => p.id === id)) return;
-    cfg = { ...cfg, personal: [...cfg.personal, { id, n: nombre, padre: '', dias: [0, 1, 2, 3, 4, 5, 6], oc: false }] };
+    cfg = { ...cfg, personal: [...cfg.personal, { id, n: nombre, casas: null, dias: [0, 1, 2, 3, 4, 5, 6], oc: false }] };
     agregados.push(nombre);
   };
   for (const [d, dia] of Object.entries(dias)) {
@@ -302,7 +395,7 @@ export function desdeExcel(dias, personalAcuerdos, config) {
     call.forEach((id) => asegurar(id, nombreDe.get(id) || id));
     if (call.length) h = poner(h, +d, ON_CALL, Array.from(new Set(call)));
   }
-  return { horario: h, config: cfg, agregados };
+  return { horario: h, config: asignarCasas(cfg, [{ clave, horario: { ...h, fer } }], true), agregados };
 }
 
 export function aAnalisis(clave, horario, config, personalAcuerdos) {
