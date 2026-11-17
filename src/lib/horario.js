@@ -100,8 +100,12 @@ export function construirTokenizador(personal) {
   };
 }
 
+const CORTAS = { c1: 'Casa 1', c2: 'Casa 2', c3: 'Casa 3', c4: 'Casa 4', est: 'Casa Esther' };
+const FIN_DE_CASA = ['nota', 'notas', 'vacacion', 'vacaciones', 'observaciones', 'observacion'];
+
 function etiquetaCasa(lbl) {
   if (lbl === 'oncall') return 'On Call';
+  if (CORTAS[lbl]) return CORTAS[lbl];
   if (lbl === 'casaest' || lbl === 'esther' || lbl === 'casaesther') return 'Casa Esther';
   const conocida = CASAS.find((c) => squash(c) === lbl);
   if (conocida) return conocida;
@@ -113,7 +117,7 @@ function etiquetaCasa(lbl) {
 export function leerCelda(textoCrudo, tokenizar) {
   const sinNotas = textoCrudo.replace(/\([^)]*\)?/g, ' ');
   const t = squash(sinNotas).replace(/:+/g, ':');
-  const etiquetas = [...CASAS.map(squash), 'oncall', 'casaest', 'esther'].sort((a, b) => b.length - a.length);
+  const etiquetas = [...CASAS.map(squash), 'oncall', 'casaest', 'esther', ...Object.keys(CORTAS), ...FIN_DE_CASA].sort((a, b) => b.length - a.length);
   const re = new RegExp(`(${etiquetas.join('|')}|casa\\d+):`, 'g');
   const partes = [];
   let m;
@@ -136,6 +140,7 @@ export function leerCelda(textoCrudo, tokenizar) {
     return v;
   };
   for (const { lbl, txt } of partes) {
+    if (FIN_DE_CASA.includes(lbl)) continue;
     const { ids, desconocidos: d } = tokenizar(txt.replace(/:/g, ''));
     const nombre = etiquetaCasa(lbl);
     for (const x of d) desconocidos.push({ casa: nombre, texto: limpiar(x) });

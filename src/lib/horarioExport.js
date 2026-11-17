@@ -196,6 +196,7 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
         const es = size - 1.4;
         const et = CORTO[k];
         page.drawText(et, { x: x + 4 + (etW - B.widthOfTextAtSize(et, es)) / 2, y: y + 0.2, size: es, font: B, color: blanco });
+        page.drawText(':', { x: x + 4 + (etW + B.widthOfTextAtSize(et, es)) / 2, y: y + 0.2, size: es, font: B, color: blanco, opacity: 0 });
         for (const l of lineas) {
           if (y < minY) break;
           page.drawText(l, { x: x + 4 + etW + 4, y, size, font: R, color: tinta });

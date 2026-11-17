@@ -71,3 +71,19 @@ ok(firma(an4) === firma(A.aAnalisis('2026-12', hn, config, personal)), 'las nota
 const largas = A.ponerObs(A.ponerNota(hn, 4, 'Una nota bastante larga para ver que se corta bien dentro del cuadro del día sin salirse ni taparse con otras cosas del calendario'), 'Observación larga '.repeat(30));
 fs.writeFileSync(out + '/Horario con notas.pdf', await X.generarPdfHorario('2026-12', largas, config, PDFLib, fontkit, recursos));
 ok(fs.statSync(out + '/Horario con notas.pdf').size > 10000, 'PDF con notas y observaciones');
+// el PDF de la app lo leen Acuerdos y Cambio de casa
+{
+  const pdfjs = await import('../node_modules/pdfjs-dist/legacy/build/pdf.mjs');
+  globalThis.pdfjsWorker = await import('../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+  const H = await import('../src/lib/horario.js');
+  const dia = (a, d) => J(Object.fromEntries(Object.entries((a.dias[d] && a.dias[d].casas) || {}).filter(([, ids]) => ids.length).map(([c, ids]) => [c, [...ids].sort()]).sort())) + '|' + J([...((a.dias[d] && a.dias[d].call) || [])].sort());
+  for (const [nombre, h] of [['normal', r.horario], ['con notas largas', largas]]) {
+    const bytes = await X.generarPdfHorario('2026-12', h, config, PDFLib, fontkit, recursos);
+    const leido = H.analizarHorario(await H.leerItemsPdf(new Uint8Array(bytes), pdfjs), personal, 'HORARIO DICIEMBRE 2026.pdf');
+    const esperado = A.aAnalisis('2026-12', h, config, personal);
+    const malos = [];
+    for (let d = 1; d <= 31; d++) if (dia(leido, d) !== dia(esperado, d)) malos.push(d + ': ' + dia(leido, d) + ' ≠ ' + dia(esperado, d));
+    ok(leido.mes === 11 && !malos.length, `PDF ${nombre}: Acuerdos lee los 31 días igual que en la app` + (malos.length ? ' → ' + malos.slice(0, 2).join(' / ') : ''));
+    ok(!leido.findes.some((f) => f.desconocidos && f.desconocidos.length), `PDF ${nombre}: sin nombres desconocidos (las notas no se confunden con personas)`);
+  }
+}
