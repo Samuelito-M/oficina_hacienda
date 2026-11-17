@@ -1,4 +1,4 @@
-import { fold, squash } from './text.js';
+import { fold, squash, MESES } from './text.js';
 
 export const CASAS = ['Casa 1', 'Casa 2', 'Casa 3', 'Casa 4', 'Casa Esther'];
 
@@ -45,7 +45,9 @@ export function normalizarPersonal(guardado) {
         fijo: typeof g.fijo === 'boolean' ? g.fijo : !!base.fijo,
         casa: typeof g.casa === 'string' ? g.casa : base.casa || '',
         completo: typeof g.completo === 'string' ? g.completo : '',
-        cedula: typeof g.cedula === 'string' ? g.cedula : ''
+        cedula: typeof g.cedula === 'string' ? g.cedula : '',
+        hasta: esMes(g.hasta) ? g.hasta : '',
+        hor: g.hor && typeof g.hor === 'object' ? g.hor : undefined
       });
     }
   }
@@ -67,7 +69,7 @@ export function guardarPersonal(lista) {
   try {
     localStorage.setItem(
       KEY,
-      JSON.stringify(lista.map(({ id, nombre, alias, fijo, casa, completo, cedula }) => ({ id, nombre, alias, fijo, casa, completo, cedula })))
+      JSON.stringify(lista.map(({ id, nombre, alias, fijo, casa, completo, cedula, hasta, hor }) => ({ id, nombre, alias, fijo, casa, completo, cedula, hasta, hor })))
     );
     return true;
   } catch {
@@ -114,4 +116,53 @@ export function nuevaPersona(lista, nombre, alias = []) {
   let id = slug(nombre);
   while (lista.some((x) => x.id === id)) id += 'x';
   return { id, nombre: nombre.trim(), alias: Array.from(new Set(alias.map(squash).filter(Boolean))), fijo: false, casa: '', completo: '', cedula: '' };
+}
+
+const esMes = (m) => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m);
+export const mesDe = (fecha) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+export const mesHoy = () => mesDe(new Date());
+export function sumarMes(mes, n) {
+  const d = new Date(+mes.slice(0, 4), +mes.slice(5, 7) - 1 + n, 1);
+  return mesDe(d);
+}
+export const nombreMes = (mes) => `${MESES[+mes.slice(5, 7) - 1]} ${mes.slice(0, 4)}`;
+export const trabajaEn = (p, mes) => !p.hasta || p.hasta >= mes;
+export const fijoEn = (p, mes) => !!p.fijo && trabajaEn(p, mes);
+
+export function sincronizarConHorario(lista, config) {
+  if (!config || !Array.isArray(config.personal)) return lista;
+  const nueva = lista.map((p) => ({ ...p }));
+  let cambio = false;
+  for (const h of config.personal) {
+    if (!h || !h.id || !h.n) continue;
+    const casa = h.rol === 'padre' && Array.isArray(h.casas) && h.casas.length === 1 ? h.casas[0] : '';
+    const snap = { n: h.n, rol: h.rol, casa, hasta: esMes(h.hasta) ? h.hasta : '' };
+    const llave = fold(h.n).replace(/[^a-z]/g, '');
+    let p = nueva.find((x) => x.id === h.id) || nueva.find((x) => !x.hor && fold(x.nombre).replace(/[^a-z]/g, '') === llave);
+    if (!p) {
+      let id = h.id;
+      while (nueva.some((x) => x.id === id)) id += 'x';
+      nueva.push({ id, nombre: h.n, alias: [squash(h.n)].filter(Boolean), fijo: h.rol === 'padre', casa, completo: '', cedula: '', hasta: snap.hasta, hor: snap });
+      cambio = true;
+      continue;
+    }
+    const antes = p.hor;
+    if (antes && antes.n === snap.n && antes.rol === snap.rol && antes.casa === snap.casa && antes.hasta === snap.hasta) continue;
+    if (!antes) {
+      if (snap.hasta && !p.hasta) p.hasta = snap.hasta;
+    } else {
+      if (antes.n !== snap.n) {
+        p.nombre = h.n;
+        p.alias = Array.from(new Set([...(p.alias || []), squash(h.n)].filter(Boolean)));
+      }
+      if (antes.rol !== snap.rol || antes.casa !== snap.casa) {
+        p.fijo = h.rol === 'padre' ? true : antes.rol === 'padre' ? false : p.fijo;
+        p.casa = casa;
+      }
+      if (antes.hasta !== snap.hasta) p.hasta = snap.hasta;
+    }
+    p.hor = snap;
+    cambio = true;
+  }
+  return cambio ? nueva : lista;
 }

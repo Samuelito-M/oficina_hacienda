@@ -514,3 +514,9 @@ table.h-res{width:100%;border-collapse:collapse;font-size:14.5px}
 .h-btn-borrar{color:var(--bad)}
 .h-btn-borrar:hover{border-color:var(--bad)}
 .h-btn.h-peligro{background:var(--bad);border-color:var(--bad);color:#fff}
+
+.ya-no{margin:12px 0;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.ya-no summary{cursor:pointer;font-weight:600}
+.ya-no ul{list-style:none;margin:8px 0 0;padding:0}
+.ya-no li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line)}
+.ya-no li:first-child{border-top:0}

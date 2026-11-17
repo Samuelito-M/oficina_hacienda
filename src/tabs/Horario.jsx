@@ -326,6 +326,7 @@ function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
             </div>
             {error && <span className="h-err">{error}</span>}
           </div>
+          <p className="hint">Lo que cambies aquí también se actualiza en Acuerdos y en Cambio de casa. Solo falta poner los apellidos y la cédula en Acuerdos, en Personal.</p>
           <div className="h-gente">
             {grupos.map(([k, t]) => {
               const l = trabajan.filter((p) => p.rol === k);
@@ -482,7 +483,7 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, avisar }) {
+export default function Horario({ personal, avisar, onConfig }) {
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
@@ -546,6 +547,10 @@ export default function Horario({ personal, avisar }) {
   }, [con.token, clave]);
 
   const sucio = horario != null && J(horario) !== guardado;
+
+  useEffect(() => {
+    if (onConfig && estado === 'listo') onConfig(configGuardada ? JSON.parse(configGuardada) : config);
+  }, [configGuardada, estado]);
 
   useEffect(() => {
     if (!sucio) return undefined;

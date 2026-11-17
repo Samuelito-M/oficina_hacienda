@@ -13,14 +13,14 @@ import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acue
 import { generarExcelPagos } from './lib/pagos.js';
 import { generarCambiosDeCasa } from './lib/casas.js';
 import { leerMenu, previsualizarMenu, generarMenu, MenuError } from './lib/menu.js';
-import { cargarPersonal, guardarPersonal, fusionarPersonas } from './lib/personal.js';
+import { cargarPersonal, guardarPersonal, fusionarPersonas, sincronizarConHorario } from './lib/personal.js';
 import { descargar, abrirPdf, extension, leerBytes, MIME, nombreSeguro } from './lib/archivos.js';
 import { MESES, fechaCorta } from './lib/text.js';
 import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib/horarioApp.js';
 
 const TABS = ['acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.10';
+const VERSION = '1.11';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -52,6 +52,7 @@ export default function App() {
   const [aviso, setAviso] = useState('');
   const [toast, setToast] = useState('');
   const [guardadoOk, setGuardadoOk] = useState(true);
+  const [horConfig, setHorConfig] = useState(null);
 
   useEffect(() => {
     const f = () => setTab(leerTab());
@@ -71,6 +72,11 @@ export default function App() {
     setPersonalState(lista);
     setGuardadoOk(guardarPersonal(lista));
   }, []);
+  useEffect(() => {
+    if (!horConfig) return;
+    const r = sincronizarConHorario(personal, horConfig);
+    if (r !== personal) setPersonal(r);
+  }, [horConfig]);
   const setDicExtra = (d) => {
     setDicExtraState(d);
     try {
@@ -129,7 +135,9 @@ export default function App() {
     const { anio, mes } = partesMes(clave);
     setOver({});
     setMarcas({});
-    setHorario({ estado: 'cargando', nombre: `Horario de ${MESES[mes]} ${anio} (guardado en la app)`, ext: 'xlsx', app: { clave, horario: limpio, config: normalizarConfig(cfg) } });
+    const config = normalizarConfig(cfg);
+    setHorConfig(config);
+    setHorario({ estado: 'cargando', nombre: `Horario de ${MESES[mes]} ${anio} (guardado en la app)`, ext: 'xlsx', app: { clave, horario: limpio, config } });
   };
 
   const onWord = async (file) => {
@@ -307,7 +315,7 @@ export default function App() {
         )}
         {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onHorarioApp={onHorarioApp} onPdf={onPdf} generando={generando === 'pdf'} />}
         {tab === 'ninos' && <Ninos />}
-        {tab === 'horario' && <Horario personal={personal} avisar={setToast} />}
+        {tab === 'horario' && <Horario personal={personal} avisar={setToast} onConfig={setHorConfig} />}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">

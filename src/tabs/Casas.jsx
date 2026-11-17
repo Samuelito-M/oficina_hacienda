@@ -3,6 +3,7 @@ import Subir from '../components/Subir.jsx';
 import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import { SECCIONES } from '../lib/casas.js';
 import { claveFinde } from '../lib/seleccion.js';
+import { mesDe, mesHoy, trabajaEn } from '../lib/personal.js';
 import { fechaCorta, viernesADomingo } from '../lib/text.js';
 
 const BAJAR = (
@@ -17,7 +18,7 @@ export function hojasDelFinde(f, personal, marcas) {
   const porId = new Map(personal.map((p) => [p.id, p]));
   return Object.keys(f.casas).map((casa) => {
     const ids = (f.casasSabado[casa] && f.casasSabado[casa].length ? f.casasSabado[casa] : f.casas[casa]) || [];
-    const padres = personal.filter((p) => p.casa === casa);
+    const padres = personal.filter((p) => p.casa === casa && trabajaEn(p, mesDe(f.sabado)));
     const estan = ids.filter((id) => padres.some((p) => p.id === id));
     const k = `${claveFinde(f)}|${casa}`;
     const marcada = k in marcas ? marcas[k] : estan.length === 0;
@@ -101,6 +102,8 @@ function Hoja({ h }) {
 
 export default function Casas({ horario, analisis, errorAnalisis, personal, marcas, setMarcas, onHorario, onHorarioApp, onPdf, generando }) {
   const hoy = new Date();
+  const mesVista = analisis ? `${analisis.anio}-${String(analisis.mes + 1).padStart(2, '0')}` : mesHoy();
+  const padresAhora = personal.filter((p) => p.casa && trabajaEn(p, mesVista));
   const inicial = useMemo(() => {
     if (!analisis) return 0;
     const i = analisis.findes.findIndex((f) => f.domingo >= new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
@@ -215,9 +218,9 @@ export default function Casas({ horario, analisis, errorAnalisis, personal, marc
               </div>
               <div className="padres">
                 <b>Padres de casa:</b>{' '}
-                {Array.from(new Set(personal.filter((p) => p.casa).map((p) => p.casa)))
-                  .map((c) => `${personal.filter((p) => p.casa === c).map((p) => p.nombre).join(' y ')} (${c})`)
-                  .join(' · ') || 'ninguno. Asígnalos en Personal, en la pestaña Acuerdos.'}
+                {Array.from(new Set(padresAhora.map((p) => p.casa)))
+                  .map((c) => `${padresAhora.filter((p) => p.casa === c).map((p) => p.nombre).join(' y ')} (${c})`)
+                  .join(' · ') || 'ninguno. Ponlos como padres de casa en la pestaña Horario, en Personal y reglas.'}
               </div>
             </div>
             <div className="panel">

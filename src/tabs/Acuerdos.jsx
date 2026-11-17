@@ -5,7 +5,7 @@ import Personal from '../components/Personal.jsx';
 import Desconocidos from '../components/Desconocidos.jsx';
 import { acuerdosElegidos, claveFinde, estaElegido, listo, vistaPrevia } from '../lib/seleccion.js';
 import { finDeSemanaCorto, finDeSemanaLargo, MESES } from '../lib/text.js';
-import { cedulaValida } from '../lib/personal.js';
+import { cedulaValida, fijoEn, mesDe } from '../lib/personal.js';
 
 const OK = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -204,12 +204,12 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                                   </button>
                                 );
                               const on = estaElegido(over, f, p);
-                              const extra = !p.fijo;
+                              const extra = !fijoEn(p, mesDe(f.sabado));
                               return (
                                 <button key={id} className={`chip ${on ? 'on' : ''} ${on && extra ? 'x' : ''}`} aria-pressed={on} onClick={() => alternar(f, p)}>
                                   {on ? OK : MAS}
                                   {p.nombre}
-                                  {on && <span className="t">{p.fijo ? 'fijo' : 'extra'}</span>}
+                                  {on && <span className="t">{extra ? 'extra' : 'fijo'}</span>}
                                 </button>
                               );
                             })}
@@ -269,7 +269,7 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                       <tr key={p.id}>
                         <td>
                           {p.completo}
-                          {!p.fijo && <span className="tag">extra</span>}
+                          {!items.some((a) => fijoEn(p, mesDe(a.sabado))) && <span className="tag">extra</span>}
                         </td>
                         <td>
                           {items.map((a, i) => (

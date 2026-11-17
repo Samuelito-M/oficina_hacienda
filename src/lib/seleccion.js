@@ -1,5 +1,5 @@
 import { MESES, fold, fechaLarga, addDays } from './text.js';
-import { cedulaValida } from './personal.js';
+import { cedulaValida, fijoEn, mesDe } from './personal.js';
 
 export const claveFinde = (f) => `${f.sabado.getFullYear()}-${f.sabado.getMonth() + 1}-${f.sabado.getDate()}`;
 
@@ -10,7 +10,7 @@ export function listo(p) {
 export function estaElegido(over, f, p) {
   const k = `${claveFinde(f)}|${p.id}`;
   if (k in over) return over[k] && listo(p);
-  return !!p.fijo && listo(p);
+  return fijoEn(p, mesDe(f.sabado)) && listo(p);
 }
 
 export function acuerdosElegidos(analisis, personal, over) {

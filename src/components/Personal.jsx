@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CASAS, PERSONAL_BASE, cedulaValida, normalizarPersonal, nuevaPersona } from '../lib/personal.js';
+import { CASAS, PERSONAL_BASE, cedulaValida, mesHoy, nombreMes, normalizarPersonal, nuevaPersona, sumarMes, trabajaEn } from '../lib/personal.js';
 import { squash } from '../lib/text.js';
 import { descargar, leerBytes } from '../lib/archivos.js';
 
@@ -16,18 +16,22 @@ function Celda({ valor, onCambio, ...rest }) {
 export default function Personal({ personal, setPersonal }) {
   const [msg, setMsg] = useState('');
   const [borrar, setBorrar] = useState(null);
+  const [baja, setBaja] = useState(null);
   const archivo = useRef(null);
   const base = new Set(PERSONAL_BASE.map((p) => p.id));
   const cambiar = (id, cambios) => setPersonal(personal.map((p) => (p.id === id ? { ...p, ...cambios } : p)));
-  const conCedula = personal.filter((p) => cedulaValida(p.cedula)).length;
+  const ahora = mesHoy();
+  const activos = personal.filter((p) => trabajaEn(p, ahora));
+  const fuera = personal.filter((p) => !trabajaEn(p, ahora));
+  const conCedula = activos.filter((p) => cedulaValida(p.cedula)).length;
   return (
     <details className="box">
       <summary>
-        Personal <span>{personal.length} personas · {conCedula} con cédula guardada</span>
+        Personal <span>{activos.length} personas · {conCedula} con cédula guardada</span>
       </summary>
       <div className="box-body">
         <p className="hint">
-          Esto se guarda en este navegador. El nombre corto es como sale en el horario. Si en el horario lo escriben de otra forma, agrégala en “Otras formas”, separadas por coma. Los fijos llevan acuerdo automático y los padres de casa deciden qué casas necesitan cambio de casa.
+          Las personas se agregan y se quitan en la pestaña Horario (Personal y reglas) y aparecen aquí solas. Aquí solo llena sus apellidos y cédula para el acuerdo. Esto se guarda en este navegador. Los fijos llevan acuerdo automático y los padres de casa deciden qué casas necesitan cambio de casa.
         </p>
         <div className="tbox">
           <table className="ptable">
@@ -43,7 +47,7 @@ export default function Personal({ personal, setPersonal }) {
               </tr>
             </thead>
             <tbody>
-              {personal.map((p) => (
+              {activos.map((p) => (
                 <tr key={p.id}>
                   <td style={{ minWidth: 110 }}>
                     <Celda valor={p.nombre} onCambio={(v) => v.trim() && cambiar(p.id, { nombre: v.trim() })} aria-label="Nombre corto" />
@@ -86,9 +90,58 @@ export default function Personal({ personal, setPersonal }) {
                     </select>
                   </td>
                   <td>
+                    {baja && baja.id === p.id ? (
+                      <span className="row-actions">
+                        <select className="mini" value={baja.desde} onChange={(e) => setBaja({ id: p.id, desde: e.target.value })} aria-label={`Desde qué mes ya no trabaja ${p.nombre}`}>
+                          {[0, 1, 2].map((n) => sumarMes(ahora, n)).map((m) => (
+                            <option key={m} value={m}>
+                              Desde {nombreMes(m)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="mini danger"
+                          onClick={() => {
+                            cambiar(p.id, { hasta: sumarMes(baja.desde, -1) });
+                            setBaja(null);
+                          }}
+                        >
+                          Listo
+                        </button>
+                        <button className="mini" onClick={() => setBaja(null)}>
+                          No
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="row-actions">
+                        {p.hasta && <span className="hint">Hasta {nombreMes(p.hasta)}</span>}
+                        <button className="mini" onClick={() => setBaja({ id: p.id, desde: sumarMes(ahora, 1) })}>
+                          Ya no trabaja
+                        </button>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {fuera.length > 0 && (
+          <details className="ya-no">
+            <summary>Ya no trabajan ({fuera.length})</summary>
+            <ul>
+              {fuera.map((p) => (
+                <li key={p.id}>
+                  <span>
+                    <b>{p.nombre}</b> <span className="hint">trabajó hasta {nombreMes(p.hasta)}</span>
+                  </span>
+                  <span className="row-actions">
+                    <button className="mini" onClick={() => cambiar(p.id, { hasta: '' })}>
+                      Volver a poner
+                    </button>
                     {!base.has(p.id) &&
                       (borrar === p.id ? (
-                        <span className="row-actions">
+                        <>
                           <button
                             className="mini danger"
                             onClick={() => {
@@ -96,23 +149,24 @@ export default function Personal({ personal, setPersonal }) {
                               setBorrar(null);
                             }}
                           >
-                            Sí, quitar
+                            Sí, borrar
                           </button>
                           <button className="mini" onClick={() => setBorrar(null)}>
                             No
                           </button>
-                        </span>
+                        </>
                       ) : (
                         <button className="mini" onClick={() => setBorrar(p.id)}>
-                          Quitar
+                          Borrar
                         </button>
                       ))}
-                  </td>
-                </tr>
+                  </span>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+            <p className="hint">Siguen saliendo en los acuerdos de los meses en que sí trabajaron.</p>
+          </details>
+        )}
         {msg && <p className="hint" style={{ color: '#b3261e' }}>{msg}</p>}
         <div className="row-actions">
           <button className="mini solid" onClick={() => setPersonal([...personal, nuevaPersona(personal, `Persona ${personal.length + 1}`)])}>
