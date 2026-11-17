@@ -2,6 +2,43 @@ import { fold } from './text.js';
 
 const DIAS_VIEJA = 183;
 
+export const SISTEMAS = [
+  ['us', 'Americana'],
+  ['ec', 'Ecuador'],
+  ['ambas', 'Ambas']
+];
+export const CAMPO_TALLA = { ropa: { us: 'tallaRopa', ec: 'tallaRopaEC' }, zapatos: { us: 'tallaZapatos', ec: 'tallaZapatosEC' } };
+const ETIQUETA = { es: { us: 'Americana', ec: 'Ecuador' }, en: { us: 'US', ec: 'Ecuador' } };
+const TODAS = ['tallaRopa', 'tallaZapatos', 'tallaRopaEC', 'tallaZapatosEC'];
+const conTallas = (n) => TODAS.some((k) => n[k]);
+
+export function tallaDe(n, tipo, sistema = 'us', idioma = 'es') {
+  const us = String(n[CAMPO_TALLA[tipo].us] || '').trim();
+  const ec = String(n[CAMPO_TALLA[tipo].ec] || '').trim();
+  if (sistema === 'us') return us;
+  if (sistema === 'ec') return ec;
+  const e = ETIQUETA[idioma] || ETIQUETA.es;
+  return [us && `${us} (${e.us})`, ec && `${ec} (${e.ec})`].filter(Boolean).join(' · ');
+}
+
+const K_SISTEMA = 'oficina-hacienda.tallas.sistema';
+export function leerSistema(donde, porDefecto = 'ambas') {
+  try {
+    const v = localStorage.getItem(`${K_SISTEMA}.${donde}`);
+    if (SISTEMAS.some(([k]) => k === v)) return v;
+  } catch {
+    return porDefecto;
+  }
+  return porDefecto;
+}
+export function guardarSistema(donde, v) {
+  try {
+    localStorage.setItem(`${K_SISTEMA}.${donde}`, v);
+  } catch {
+    return;
+  }
+}
+
 function clave(t) {
   return fold(t).replace(/\s+/g, ' ').trim();
 }
@@ -50,24 +87,30 @@ function agrupar(ninos, campo) {
 export function tallasViejas(ninos, hoy = new Date()) {
   const limite = hoy.getTime() - DIAS_VIEJA * 86400000;
   return ninos
-    .filter((n) => (n.tallaRopa || n.tallaZapatos) && n.tallasFecha && new Date(n.tallasFecha).getTime() < limite)
+    .filter((n) => conTallas(n) && n.tallasFecha && new Date(n.tallasFecha).getTime() < limite)
     .map((n) => ({ ...n, meses: Math.floor((hoy - new Date(n.tallasFecha)) / (30.44 * 86400000)) }))
     .sort((a, b) => b.meses - a.meses);
 }
 
 export function esVieja(n, hoy = new Date()) {
-  return !!(n.tallasFecha && (n.tallaRopa || n.tallaZapatos) && new Date(n.tallasFecha).getTime() < hoy.getTime() - DIAS_VIEJA * 86400000);
+  return !!(n.tallasFecha && conTallas(n) && new Date(n.tallasFecha).getTime() < hoy.getTime() - DIAS_VIEJA * 86400000);
 }
 
-export function resumenTallas(ninos) {
-  return { ropa: agrupar(ninos, 'tallaRopa'), zapatos: agrupar(ninos, 'tallaZapatos'), total: ninos.length };
+export function resumenTallas(ninos, sistema = 'us') {
+  const uno = (s) => ({ ropa: agrupar(ninos, CAMPO_TALLA.ropa[s]), zapatos: agrupar(ninos, CAMPO_TALLA.zapatos[s]) });
+  const partes = sistema === 'ambas' ? ['us', 'ec'] : [sistema];
+  return { total: ninos.length, partes: partes.map((s) => ({ s, nombre: ETIQUETA.es[s], ...uno(s) })), ...uno(partes[0]) };
 }
 
 export function textoTallas(r, titulo) {
   const linea = (g) => `• ${g.talla}: ${g.n}`;
-  const partes = [titulo, '', 'Tallas de ropa:', ...r.ropa.lista.map(linea)];
-  if (r.ropa.sin) partes.push(`• Sin talla: ${r.ropa.sin}`);
-  partes.push('', 'Tallas de zapatos:', ...r.zapatos.lista.map(linea));
-  if (r.zapatos.sin) partes.push(`• Sin talla: ${r.zapatos.sin}`);
-  return partes.join('\n');
+  const out = [titulo];
+  for (const p of r.partes) {
+    const cual = r.partes.length > 1 || p.s === 'ec' ? ` (${p.nombre})` : ' (Americana)';
+    out.push('', `Tallas de ropa${cual}:`, ...p.ropa.lista.map(linea));
+    if (p.ropa.sin) out.push(`• Sin talla: ${p.ropa.sin}`);
+    out.push('', `Tallas de zapatos${cual}:`, ...p.zapatos.lista.map(linea));
+    if (p.zapatos.sin) out.push(`• Sin talla: ${p.zapatos.sin}`);
+  }
+  return out.join('\n');
 }

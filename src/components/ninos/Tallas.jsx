@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { resumenTallas, tallasViejas, textoTallas } from '../../lib/tallas.js';
+import { resumenTallas, tallasViejas, textoTallas, leerSistema, guardarSistema } from '../../lib/tallas.js';
+import Sistema from './Sistema.jsx';
 
 function Tabla({ titulo, datos }) {
   return (
@@ -39,7 +40,8 @@ function Tabla({ titulo, datos }) {
 }
 
 export default function Tallas({ lista, filtro, onEditar, onCerrar }) {
-  const r = useMemo(() => resumenTallas(lista), [lista]);
+  const [sis, setSis] = useState(() => leerSistema('resumen', 'ambas'));
+  const r = useMemo(() => resumenTallas(lista, sis), [lista, sis]);
   const viejas = useMemo(() => tallasViejas(lista), [lista]);
   const [msg, setMsg] = useState('');
   const titulo = `Tallas${filtro ? ` · ${filtro}` : ''} (${lista.length} niños)`;
@@ -73,10 +75,20 @@ export default function Tallas({ lista, filtro, onEditar, onCerrar }) {
           </ul>
         </div>
       )}
-      <div className="cols">
-        <Tabla titulo="Ropa" datos={r.ropa} />
-        <Tabla titulo="Zapatos" datos={r.zapatos} />
-      </div>
+      <Sistema
+        valor={sis}
+        onCambio={(v) => {
+          setSis(v);
+          guardarSistema('resumen', v);
+        }}
+        id="sis-res"
+      />
+      {r.partes.map((p) => (
+        <div className="cols" key={p.s}>
+          <Tabla titulo={`Ropa · ${p.nombre}`} datos={p.ropa} />
+          <Tabla titulo={`Zapatos · ${p.nombre}`} datos={p.zapatos} />
+        </div>
+      ))}
       <div className="row-actions">
         <button type="button" className="mini solid" onClick={copiar}>
           Copiar resumen

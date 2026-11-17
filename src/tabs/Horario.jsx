@@ -59,6 +59,7 @@ const nombreMes = (clave) => {
 };
 const soloMes = (clave) => MESES[partesMes(clave).mes];
 const J = (x) => JSON.stringify(x);
+const estaVacio = (h) => !h || (!Object.keys(h.dias).length && !Object.keys(h.notas || {}).length && !h.obs);
 
 function cuando(iso) {
   if (!iso) return '';
@@ -492,6 +493,7 @@ export default function Horario({ personal, avisar }) {
   const [guardado, setGuardado] = useState(null);
   const [actualizado, setActualizado] = useState('');
   const [anterior, setAnterior] = useState(null);
+  const [base, setBase] = useState({ vac: [], fer: [] });
   const [config, setConfig] = useState(normalizarConfig(null));
   const [configGuardada, setConfigGuardada] = useState('');
   const [nuevos, setNuevos] = useState([]);
@@ -518,11 +520,13 @@ export default function Horario({ personal, avisar }) {
       const r = await llamar(c.url, { accion: 'horario', mes: cual, token: c.token });
       const d = r.datos || {};
       const h = normalizarHorario(d.horario);
-      const ant = normalizarHorario(d.anterior);
+      const antCrudo = normalizarHorario(d.anterior);
+      const ant = estaVacio(antCrudo) ? null : antCrudo;
       const cfg = normalizarConfig(d.config);
       setConfig(cfg);
       setConfigGuardada(d.config && d.config.v === 3 ? J(cfg) : '');
-      setHorario(h);
+      setBase({ vac: h ? h.vac : [], fer: h ? h.fer : [] });
+      setHorario(estaVacio(h) ? null : h);
       setGuardado(h ? J(h) : null);
       setActualizado(d.actualizado || '');
       setAnterior(ant);
@@ -588,15 +592,40 @@ export default function Horario({ personal, avisar }) {
   };
 
   const deshacer = () => {
-    setHorario(guardado ? JSON.parse(guardado) : null);
+    const g = guardado ? JSON.parse(guardado) : null;
+    setHorario(estaVacio(g) ? null : g);
     setNuevos([]);
     setNotas([]);
   };
 
   const cambiar = (h) => setHorario(h);
 
+  const borrar = async () => {
+    const vacio = { ...horarioVacio(), vac: horario ? horario.vac : base.vac, fer: horario ? horario.fer : base.fer };
+    if (guardado) {
+      setOcupado('borrar');
+      try {
+        const r = await llamar(con.url, { accion: 'guardarHorario', mes: clave, horario: vacio, token: con.token });
+        setGuardado(J(vacio));
+        setActualizado(r.actualizado || new Date().toISOString());
+      } catch (err) {
+        setOcupado('');
+        if (err.codigo === 'sesion') return salir(err);
+        avisar('No se pudo borrar. Revisa tu internet e intenta otra vez.');
+        return;
+      }
+      setOcupado('');
+    }
+    setBase({ vac: vacio.vac, fer: vacio.fer });
+    setHorario(null);
+    setNuevos([]);
+    setNotas([]);
+    setVentana(null);
+    avisar(`Borré el horario de ${soloMes(clave)}. Ahora puedes armarlo, copiarlo o empezar de cero.`);
+  };
+
   const copiar = () => {
-    const r = copiarAnterior(clave, anterior, config, horario);
+    const r = copiarAnterior(clave, anterior, config, horario || { ...horarioVacio(), ...base });
     setHorario(r.horario);
     setNotas(resumirQuitados(r.quitados, ctx.nombre));
     setNuevos([]);
@@ -605,8 +634,9 @@ export default function Horario({ personal, avisar }) {
   };
 
   const llenar = (desdeCero) => {
-    const base = desdeCero ? { ...horarioVacio(), vac: horario ? horario.vac : [], fer: horario ? horario.fer : [], notas: horario ? horario.notas : {}, obs: horario ? horario.obs : '' } : horario;
-    const r = armar(clave, base, config, anterior);
+    const desde = horario || { ...horarioVacio(), ...base };
+    const inicio = desdeCero ? { ...horarioVacio(), vac: desde.vac, fer: desde.fer, notas: desde.notas || {}, obs: desde.obs || '' } : horario;
+    const r = armar(clave, inicio, config, anterior);
     setHorario(r.horario);
     setNuevos(desdeCero ? [] : (n) => [...n, ...r.nuevos]);
     if (desdeCero) {
@@ -615,9 +645,9 @@ export default function Horario({ personal, avisar }) {
     }
     const quedan = problemas(contexto(clave, r.horario, config)).filter((p) => p.tipo === 'falta');
     const casasQ = Array.from(new Set(quedan.map((p) => p.k)));
-    const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): están en rojo.` : '';
+    const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): quedaron marcados en verde para que los revises.` : '';
     if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
-    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo rojo para elegir, o usa “Volver a armar con las reglas”.');
+    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.');
   };
 
   const subir = async (file) => {
@@ -635,7 +665,7 @@ export default function Horario({ personal, avisar }) {
       }
       const r = desdeExcel(an.dias, personal, config);
       setConfig(r.config);
-      setHorario({ ...r.horario, vac: horario ? horario.vac : [], fer: Array.from(new Set([...(horario ? horario.fer : []), ...(an.feriados || [])])).sort((x, y) => x - y), notas: { ...(horario ? horario.notas : {}), ...(an.notas || {}) }, obs: [horario ? horario.obs : '', an.obs || ''].filter(Boolean).join(' · ').slice(0, MAX_OBS) });
+      setHorario({ ...r.horario, vac: (horario || base).vac, fer: Array.from(new Set([...(horario || base).fer, ...(an.feriados || [])])).sort((x, y) => x - y), notas: { ...(horario ? horario.notas : {}), ...(an.notas || {}) }, obs: [horario ? horario.obs : '', an.obs || ''].filter(Boolean).join(' · ').slice(0, MAX_OBS) });
       setNotas(r.agregados.length ? [`Agregué al personal a: ${r.agregados.join(', ')}`] : []);
       setNuevos([]);
       avisar(`Leí el horario de ${soloMes(clave)}. Revísalo y toca “Guardar horario”.`);
@@ -731,7 +761,7 @@ export default function Horario({ personal, avisar }) {
                             {x.n}
                           </span>
                         ))}
-                        {f > 0 && <span className="f">Falta {f}</span>}
+                        {f > 0 && <span className="f">Revisar · {f === 1 ? 'falta 1' : `faltan ${f}`}</span>}
                       </button>
                     </td>
                   );
@@ -770,7 +800,7 @@ export default function Horario({ personal, avisar }) {
         <div className="dh">
           <b>{d}</b>
           <span className="dh-der">
-            {horario.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">falta {falta}</span> : null}
+            {horario.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">revisar</span> : null}
             <button type="button" className={`h-lapiz${horario.notas[d] ? ' con' : ''}`} data-nota={d} title={horario.notas[d] ? 'Editar nota' : 'Agregar nota'} aria-label={horario.notas[d] ? `Editar nota del ${d}` : `Agregar nota al ${d}`} onClick={() => setVentana({ tipo: 'nota', d })}>
               ✎
             </button>
@@ -817,10 +847,10 @@ export default function Horario({ personal, avisar }) {
       );
     return (
       <div className="h-estado mal">
-        <span>⚠️</span>
+        <span aria-hidden="true">📝</span>
         <div>
           <b>
-            {malos.length === 1 ? 'Hay 1 cosa' : `Hay ${malos.length} cosas`} por revisar {donde === 'mes' ? 'en el mes' : 'esta semana'}
+            {malos.length === 1 ? '1 cosa' : `${malos.length} cosas`} para revisar {donde === 'mes' ? 'en el mes' : 'esta semana'}
           </b>
           <ul>
             {malos.slice(0, 6).map((p, i) => (
@@ -876,7 +906,7 @@ export default function Horario({ personal, avisar }) {
             <button type="button" className="btn-link" id="h-subir" disabled={ocupado === 'subir'} onClick={() => archivo.current.click()}>
               {ocupado === 'subir' ? 'Leyendo…' : 'Subir un Excel o PDF'}
             </button>
-            <button type="button" className="btn-link" id="h-blanco" onClick={() => setHorario(horarioVacio())}>
+            <button type="button" className="btn-link" id="h-blanco" onClick={() => setHorario({ ...horarioVacio(), ...base })}>
               Empezar en blanco
             </button>
           </div>
@@ -914,6 +944,9 @@ export default function Horario({ personal, avisar }) {
               ✨ Completar lo que falta
             </button>
           )}
+          <button type="button" className="h-btn h-btn-borrar" id="h-borrar" onClick={() => setVentana({ tipo: 'borrar' })}>
+            Borrar
+          </button>
           <button type="button" className="h-btn" id="h-descargar" onClick={() => setVentana({ tipo: 'bajar' })}>
             Descargar
           </button>
@@ -1150,6 +1183,22 @@ export default function Horario({ personal, avisar }) {
             }}
           />
         )}
+      </Ventana>
+
+      <Ventana abierta={ventana?.tipo === 'borrar'} onCerrar={() => setVentana(null)} etiqueta="Borrar horario">
+        <h3>¿Borrar el horario de {soloMes(clave)}?</h3>
+        <p className="hint">
+          Se borran las casas, el on call, las notas y las observaciones de {soloMes(clave)}{guardado ? ', también en la hoja de Google' : ''}. Vuelve a salir la pantalla para armarlo con las reglas, copiar el mes anterior o empezar de cero. Las vacaciones y feriados se quedan.
+        </p>
+        <p className="hint">Los demás meses no se tocan.</p>
+        <div className="h-acc">
+          <button type="button" className="h-btn" onClick={() => setVentana(null)}>
+            Cancelar
+          </button>
+          <button type="button" className="h-btn h-peligro" id="h-borrar-ok" disabled={ocupado === 'borrar'} onClick={borrar}>
+            {ocupado === 'borrar' ? 'Borrando…' : `Sí, borrar ${soloMes(clave)}`}
+          </button>
+        </div>
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'rearmar'} onCerrar={() => setVentana(null)} etiqueta="Volver a armar">

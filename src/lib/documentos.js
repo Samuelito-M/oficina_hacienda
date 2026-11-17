@@ -1,4 +1,5 @@
 import { MESES } from './text.js';
+import { tallaDe } from './tallas.js';
 
 export const COLORES_CASA = { 'Casa 1': '#24A9C2', 'Casa 2': '#E44D64', 'Casa 3': '#389B58', 'Casa 4': '#5170FF', 'Casa Esther': '#F39200' };
 const ORDEN_CASAS = ['Casa 1', 'Casa 2', 'Casa 3', 'Casa 4', 'Casa Esther'];
@@ -203,7 +204,7 @@ export async function generarDirectorio({ ninos, casas = [], fotos = {}, idioma 
   return pdf.save();
 }
 
-export async function generarHojasRegalo({ ninos, fotos = {}, idioma = 'en' }, PDFLib, fontkit, recursos) {
+export async function generarHojasRegalo({ ninos, fotos = {}, idioma = 'en', sistema = 'us' }, PDFLib, fontkit, recursos) {
   const T = TXT[idioma] || TXT.en;
   const P = PDFLib;
   const { pdf, R, B, mano, foto } = await preparar(P, fontkit, recursos, idioma === 'en' ? 'Gift Info Sheets' : 'Hojas de regalos');
@@ -263,8 +264,9 @@ export async function generarHojasRegalo({ ninos, fotos = {}, idioma = 'en' }, P
     const y1 = 400;
     campo(T.color, n.colorFavorito, 36, y1, 250);
     campo(T.hobby, n.pasatiempos, 316, y1, 260, 'der');
-    campo(T.ropa, n.tallaRopa, 36, y1 - 90, 250);
-    campo(T.zapatos, n.tallaZapatos, 316, y1 - 90, 260, 'der');
+    const marca = (v) => (v && ((idioma === 'en' && sistema === 'ec') || (idioma !== 'en' && sistema === 'us')) ? `${v} (${sistema === 'ec' ? 'Ecuador' : 'Americana'})` : v);
+    campo(T.ropa, marca(tallaDe(n, 'ropa', sistema, idioma)), 36, y1 - 90, 250);
+    campo(T.zapatos, marca(tallaDe(n, 'zapatos', sistema, idioma)), 316, y1 - 90, 260, 'der');
     page.drawText(T.deseos, { x: 36, y: y1 - 180, size: 24, font: B, color: negro });
     const ds = envolver(n.deseos || '', R, 11, 300).slice(0, 8);
     if (ds.length) ds.forEach((l, k) => page.drawText(l, { x: 44, y: y1 - 198 - k * 14, size: 11, font: R, color: gris }));

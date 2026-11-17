@@ -5,7 +5,7 @@ const ok = (c, m) => { console.log((c ? 'ok - ' : 'FALLA - ') + m); if (!c) proc
 const t = S.call({ accion: 'entrar', clave: 'K' }).token;
 ok(S.call({ accion: 'horario', mes: '2026-12' }).error === 'sesion', 'horario pide clave');
 let r = S.call({ accion: 'horario', mes: '2026-12', token: t });
-ok(r.ok && r.version === 4 && r.datos.horario === null && r.datos.anterior === null && r.datos.config === null && r.datos.mesAnterior === '2026-11', 'mes vacío');
+ok(r.ok && r.version === 5 && r.datos.horario === null && r.datos.anterior === null && r.datos.config === null && r.datos.mesAnterior === '2026-11', 'mes vacío');
 const nov = { dias: { 1: { 'Casa 1': ['miguel', 'patricia'] } }, vac: [], fer: [2, 3] };
 ok(S.call({ accion: 'guardarHorario', mes: '2026-11', horario: nov, token: t }).ok, 'guardar noviembre');
 ok(S.call({ accion: 'guardarConfig', config: { personal: [{ id: 'miguel', n: 'Miguel' }], nec: {} }, token: t }).ok, 'guardar config');
@@ -23,4 +23,6 @@ ok(!S.call({ accion: 'guardarHorario', mes: '2026-12', horario: { x: 'a'.repeat(
 S.call({ accion: 'guardarHorario', mes: '2026-12', horario: nov, token: t });
 const ms = S.call({ accion: 'horarios', token: t }).meses;
 ok(ms.length === 2 && ms[0].mes === '2026-12', 'lista de meses, el más nuevo primero');
-ok(S.call({ accion: 'listar', token: t }).version === 4, 'niños sigue funcionando');
+ok(S.call({ accion: 'listar', token: t }).version === 5, 'niños sigue funcionando');
+S.call({ accion: 'guardarHorario', mes: '2027-02', horario: { dias: {}, vac: [], fer: [], notas: {}, obs: '' }, token: t });
+ok(!S.call({ accion: 'horarios', token: t }).meses.some((m) => m.mes === '2027-02'), 'un mes borrado no sale en la lista de Acuerdos');

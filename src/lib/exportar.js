@@ -1,4 +1,5 @@
 import { MESES, fold } from './text.js';
+import { tallaDe } from './tallas.js';
 
 export const COLUMNAS = [
   { k: 'casa', t: 'Casa', w: 70 },
@@ -21,8 +22,25 @@ export function fechaTexto(iso) {
   return p ? `${p.d} de ${MESES[p.m - 1]} de ${p.y}` : '';
 }
 
+export function columnasDe(sistema = 'us') {
+  const out = [];
+  for (const c of COLUMNAS) {
+    if (c.k !== 'ropa' && c.k !== 'zapatos') {
+      out.push({ ...c, base: c.k });
+      continue;
+    }
+    const ropa = c.k === 'ropa';
+    if (sistema === 'ambas') {
+      out.push({ k: c.k, base: c.k, t: ropa ? 'Ropa Americana' : 'Zapato Americano', w: ropa ? 76 : 86 });
+      out.push({ k: `${c.k}EC`, base: c.k, t: ropa ? 'Ropa Ecuador' : 'Zapato Ecuador', w: ropa ? 68 : 76 });
+    } else if (sistema === 'ec') out.push({ k: `${c.k}EC`, base: c.k, t: ropa ? 'Ropa (Ecuador)' : 'Zapatos (Ecuador)', w: ropa ? 80 : 88 });
+    else out.push({ k: c.k, base: c.k, t: ropa ? 'Ropa (Americana)' : 'Zapatos (Americana)', w: ropa ? 88 : 98 });
+  }
+  return out;
+}
+
 export function filasExport(ninos, edadDe) {
-  return ninos.map((n) => ({ nombre: n.nombre, casa: n.casa || '', nacimiento: n.nacimiento || '', cumple: fechaTexto(n.nacimiento), edad: edadDe(n.nacimiento), ropa: n.tallaRopa || '', zapatos: n.tallaZapatos || '', notas: n.notas || '' }));
+  return ninos.map((n) => ({ nombre: n.nombre, casa: n.casa || '', nacimiento: n.nacimiento || '', cumple: fechaTexto(n.nacimiento), edad: edadDe(n.nacimiento), ropa: tallaDe(n, 'ropa', 'us'), zapatos: tallaDe(n, 'zapatos', 'us'), ropaEC: tallaDe(n, 'ropa', 'ec'), zapatosEC: tallaDe(n, 'zapatos', 'ec'), notas: n.notas || '' }));
 }
 
 function colLetra(i) {
@@ -42,9 +60,9 @@ function serial(iso) {
   return Math.round((Date.UTC(p.y, p.m - 1, p.d) - Date.UTC(1899, 11, 30)) / 86400000);
 }
 
-export async function generarExcelNinos(filas, columnas, JSZip) {
-  const cols = [{ k: 'nombre', t: 'Nombre' }, ...COLUMNAS.filter((c) => columnas.includes(c.k))];
-  const anchos = { nombre: 28, casa: 14, cumple: 16, edad: 8, ropa: 16, zapatos: 16, notas: 40 };
+export async function generarExcelNinos(filas, columnas, JSZip, sistema = 'us') {
+  const cols = [{ k: 'nombre', t: 'Nombre' }, ...columnasDe(sistema).filter((c) => columnas.includes(c.base))];
+  const anchos = { nombre: 28, casa: 14, cumple: 16, edad: 8, ropa: 20, zapatos: 20, ropaEC: 18, zapatosEC: 18, notas: 40 };
   const celdaTexto = (ref, v, s = 0) => `<c r="${ref}" t="inlineStr"${s ? ` s="${s}"` : ''}><is><t xml:space="preserve">${esc(v)}</t></is></c>`;
   const filasXml = [];
   filasXml.push(`<row r="1">${cols.map((c, i) => celdaTexto(`${colLetra(i)}1`, c.t, 1)).join('')}</row>`);
@@ -90,11 +108,12 @@ function seguro(s) {
     .replace(/[\u0000-\u001f]/g, ' ');
 }
 
-export async function generarPdfNinos(filas, columnas, { titulo = 'Niños de la Hacienda', subtitulo = '', agrupar = true } = {}, PDFLib) {
+export async function generarPdfNinos(filas, columnas, { titulo = 'Niños de la Hacienda', subtitulo = '', agrupar = true, sistema = 'us' } = {}, PDFLib) {
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
-  const cols = [{ k: 'nombre', t: 'Nombre', w: 0 }, ...COLUMNAS.filter((c) => columnas.includes(c.k) && !(agrupar && c.k === 'casa'))];
+  const cols = [{ k: 'nombre', t: 'Nombre', w: 0 }, ...columnasDe(sistema).filter((c) => columnas.includes(c.base) && !(agrupar && c.k === 'casa'))];
   const conNotas = cols.some((c) => c.k === 'notas');
-  const tam = conNotas ? [841.89, 595.28] : [595.28, 841.89];
+  const muchas = cols.reduce((a, c) => a + (c.w || 0), 0) > 360;
+  const tam = conNotas || muchas ? [841.89, 595.28] : [595.28, 841.89];
   const pdf = await PDFDocument.create();
   pdf.setTitle(titulo);
   pdf.setCreator('Oficina Hacienda');

@@ -200,6 +200,8 @@ const CAMPOS = [
   ['casa', /casa|hogar/],
   ['nacimiento', /nacimiento|cumple|fecha|nacio/],
   ['edad', /^edad/],
+  ['tallaZapatosEC', /(zapato|calzado|pie).*(ecuador|nacional|\bec\b)|(ecuador|nacional).*(zapato|calzado)/],
+  ['tallaRopaEC', /(ropa|camiseta|camisa|pantalon|talla).*(ecuador|nacional|\bec\b)|(ecuador|nacional).*(ropa|talla)/],
   ['tallaZapatos', /zapato|calzado|pie/],
   ['tallaRopa', /ropa|camiseta|camisa|pantalon|talla/],
   ['notas', /nota|observ|comentario/]
@@ -267,6 +269,8 @@ export async function leerListaExcel(data, JSZip) {
         fechaDudosa: crudo !== undefined && crudo !== '' && !nacimiento ? String(crudo) : '',
         tallaRopa: String(o.tallaRopa ?? '').trim(),
         tallaZapatos: String(o.tallaZapatos ?? '').trim(),
+        tallaRopaEC: String(o.tallaRopaEC ?? '').trim(),
+        tallaZapatosEC: String(o.tallaZapatosEC ?? '').trim(),
         notas: String(o.notas ?? '').trim(),
         sexo: leerSexo(o.sexo)
       });

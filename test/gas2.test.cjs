@@ -2,8 +2,8 @@ const crear=require('./gasSim.cjs');const ok=(c,m)=>{if(!c){console.log('FALLA:'
 const S=crear('google/Code.gs');
 const v1=S.mkSheet('Ninos');v1.rows.push(['id','nombre','casa','nacimiento','tallaRopa','tallaZapatos','notas','actualizado']);v1.rows.push(['abc','Niño Viejo','Casa 1','2015-03-12','10','32','nota','2026-11-11T00:00:00Z']);
 S.props.CLAVE='K1';const t=S.call({accion:'entrar',clave:'K1'}).token;
-const l=S.call({accion:'listar',token:t});ok(l.version===4,'versión 4 al leer');ok(l.ninos.length===1&&l.ninos[0].nombre==='Niño Viejo'&&l.ninos[0].tallaRopa==='10','lee hoja vieja sin perder datos');
-ok(v1.rows[0].length===14&&v1.rows[0][13]==='sexo'&&v1.rows[0][11]==='tallasFecha'&&v1.rows[0][12]==='descripcion','agrega columnas nuevas al final');
+const l=S.call({accion:'listar',token:t});ok(l.version===5,'versión 5 al leer');ok(l.ninos.length===1&&l.ninos[0].nombre==='Niño Viejo'&&l.ninos[0].tallaRopa==='10','lee hoja vieja sin perder datos');
+ok(v1.rows[0].length===16&&v1.rows[0][13]==='sexo'&&v1.rows[0][15]==='tallaZapatosEC'&&v1.rows[0][11]==='tallasFecha'&&v1.rows[0][12]==='descripcion','agrega columnas nuevas al final');
 const g=S.call({accion:'guardar',token:t,nino:{id:'abc',nombre:'Niño Viejo',casa:'Casa 1',nacimiento:'2015-03-12',tallaRopa:'10',tallaZapatos:'32',colorFavorito:'Azul',pasatiempos:'Fútbol',deseos:'Pelota'}});
 ok(g.ok&&g.nino.colorFavorito==='Azul'&&g.nino.tallasFecha==='','guardar campos nuevos sin cambiar tallas no pone fecha de tallas');
 const g2=S.call({accion:'guardar',token:t,nino:{id:'abc',nombre:'Niño Viejo',casa:'Casa 1',tallaRopa:'12',tallaZapatos:'33'}});ok(g2.nino.tallasFecha.length>10,'cambiar tallas pone fecha');
@@ -24,9 +24,9 @@ const L2=S.call({accion:'listar',token:t}).ninos;ok(L2.find(x=>x.nombre==='A').t
 ok(S.call({accion:'fotos',token:'x.y',ids:['abc']}).error==='sesion','fotos requiere clave');
 ok(S.call({accion:'guardarFoto',token:'x.y',id:'q',foto}).error==='sesion','guardar foto requiere clave');
 const S2=crear('google/Code.gs');S2.props.CLAVE='K';const t2=S2.call({accion:'entrar',clave:'K'}).token;ok(S2.call({accion:'listar',token:t2}).ninos.length===0,'hoja nueva desde cero');
-ok(S2.sheets.Ninos.rows[0].length===14,'hoja nueva con 14 columnas');
+ok(S2.sheets.Ninos.rows[0].length===16,'hoja nueva con 16 columnas');
 ok(S.call({accion:'guardar',token:t,nino:{nombre:'Desc',descripcion:'Le gusta leer'}}).nino.descripcion==='Le gusta leer','guarda descripción');
-ok(S.call({accion:'listar',token:t}).version===4,'versión 4');
+ok(S.call({accion:'listar',token:t}).version===5,'versión 5');
 const gS=S.call({accion:'guardar',token:t,nino:{nombre:'Sexo F',sexo:'f'}}).nino;ok(gS.sexo==='F','guarda sexo en mayúscula');
 ok(S.call({accion:'guardar',token:t,nino:{nombre:'Sexo X',sexo:'otro'}}).nino.sexo==='','sexo inválido queda vacío');
 const L3=S.call({accion:'listar',token:t}).ninos;const a1=L3.find(x=>x.nombre==='A'),b1=L3.find(x=>x.nombre==='B');
@@ -35,3 +35,12 @@ const L4=S.call({accion:'listar',token:t}).ninos;ok(L4.find(x=>x.nombre==='A').s
 ok(L4.find(x=>x.nombre==='A').tallaRopa==='4','marcar sexo no toca lo demás');
 ok(S.call({accion:'sexos',token:'x.y',lista:[]}).error==='sesion','sexos requiere clave');
 ok(S.call({accion:'importar',token:t,ninos:[{nombre:'Imp',sexo:'M'}]}).agregados===1&&S.call({accion:'listar',token:t}).ninos.find(x=>x.nombre==='Imp').sexo==='M','importar con sexo');
+
+{const t5=S.call({accion:'entrar',clave:'K'}).token||t;
+const n5=S.call({accion:'guardar',token:t,nino:{nombre:'Tallas EC',tallaRopa:'14 youth',tallaZapatos:'4 youth',tallaRopaEC:'12',tallaZapatosEC:'35'}}).nino;
+ok(n5.tallaRopaEC==='12'&&n5.tallaZapatosEC==='35'&&n5.tallasFecha,'guarda tallas Ecuador y americanas');
+const f1=n5.tallasFecha;
+const n6=S.call({accion:'guardar',token:t,nino:Object.assign({},n5,{tallaZapatosEC:'36'})}).nino;
+ok(n6.tallaZapatosEC==='36'&&n6.tallaRopa==='14 youth','cambiar solo la talla Ecuador conserva lo demás');
+const solo=S.call({accion:'guardar',token:t,nino:{nombre:'Solo EC',tallaRopaEC:'10'}}).nino;ok(!!solo.tallasFecha,'talla Ecuador sola también cuenta como talla con fecha');
+ok(S.call({accion:'importar',token:t,ninos:[{nombre:'Imp EC',tallaZapatosEC:'30'}]}).agregados===1&&S.call({accion:'listar',token:t}).ninos.find(x=>x.nombre==='Imp EC').tallaZapatosEC==='30','importar con talla Ecuador');}

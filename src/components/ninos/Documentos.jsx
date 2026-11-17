@@ -8,6 +8,8 @@ import { generarDirectorio, generarHojasRegalo, generarCumpleMes } from '../../l
 import { cargarRecursos } from '../../lib/recursos.js';
 import { edad } from '../../lib/ninos.js';
 import { MESES } from '../../lib/text.js';
+import { leerSistema, guardarSistema } from '../../lib/tallas.js';
+import Sistema from './Sistema.jsx';
 
 const K_COLS = 'oficina-hacienda.ninos.columnas';
 const DEF = ['casa', 'cumple', 'edad', 'ropa', 'zapatos'];
@@ -47,6 +49,12 @@ export default function Documentos({ lista, todos, casa, filtro, casasData, vers
   const [cols, setCols] = useState(leerCols);
   const [agrupar, setAgrupar] = useState(true);
   const [idiomaRegalo, setIdiomaRegalo] = useState('en');
+  const [sisLista, setSisLista] = useState(() => leerSistema('lista', 'ambas'));
+  const [sisRegalo, setSisRegalo] = useState(() => leerSistema('regalos', 'us'));
+  const elegirSis = (donde, set) => (v) => {
+    set(v);
+    guardarSistema(donde, v);
+  };
   const [idiomaDir, setIdiomaDir] = useState('en');
   const [idiomaCumple, setIdiomaCumple] = useState('es');
   const hoy = new Date();
@@ -77,13 +85,13 @@ export default function Documentos({ lista, todos, casa, filtro, casasData, vers
       if (que === 'pdf' || que === 'xlsx') {
         const filas = filasExport(lista, (iso) => edad(iso));
         const base = nombreSeguro(`Ninos Hacienda${filtro ? ' - ' + filtro : ''} ${fecha}`);
-        if (que === 'pdf') descargar(await generarPdfNinos(filas, cols, { subtitulo: filtro, agrupar: agrupar && !casa }, PDFLib), `${base}.pdf`, MIME.pdf);
-        else descargar(await generarExcelNinos(filas, cols, JSZip), `${base}.xlsx`, MIME.xlsx);
+        if (que === 'pdf') descargar(await generarPdfNinos(filas, cols, { subtitulo: filtro, agrupar: agrupar && !casa, sistema: sisLista }, PDFLib), `${base}.pdf`, MIME.pdf);
+        else descargar(await generarExcelNinos(filas, cols, JSZip, sisLista), `${base}.xlsx`, MIME.xlsx);
       } else {
         const recursos = await cargarRecursos();
         if (que === 'regalos') {
           const fotos = nuevo ? await asegurarFotos(lista.filter((n) => n.conFoto).map((n) => n.id)) : {};
-          const out = await generarHojasRegalo({ ninos: lista, fotos, idioma: idiomaRegalo }, PDFLib, fontkit, recursos);
+          const out = await generarHojasRegalo({ ninos: lista, fotos, idioma: idiomaRegalo, sistema: sisRegalo }, PDFLib, fontkit, recursos);
           descargar(out, nombreSeguro(`${idiomaRegalo === 'en' ? 'Gift Info Sheets' : 'Hojas de regalos'}${filtro ? ' - ' + filtro : ''} ${fecha}.pdf`), MIME.pdf);
         }
         if (que === 'directorio') {
@@ -147,6 +155,7 @@ export default function Documentos({ lista, todos, casa, filtro, casasData, vers
               </label>
             ))}
           </div>
+          {(cols.includes('ropa') || cols.includes('zapatos')) && <Sistema valor={sisLista} onCambio={elegirSis('lista', setSisLista)} id="sis-lista" />}
           <label className="opcion">
             <input type="checkbox" id="col-agrupar" checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)} />
             <span>En el PDF, separar por casa</span>
@@ -164,6 +173,7 @@ export default function Documentos({ lista, todos, casa, filtro, casasData, vers
             Una hoja por niño, con su foto, edad, tallas, color favorito, pasatiempos y deseos. Salen los {lista.length} niños que se ven ahora{filtro ? ` (${filtro})` : ''}. Lo que falte sale con líneas para escribir a mano. La descripción, el color, los pasatiempos y los deseos se llenan al editar cada niño.
           </p>
           <Idioma valor={idiomaRegalo} onCambio={setIdiomaRegalo} id="reg" />
+          <Sistema valor={sisRegalo} onCambio={elegirSis('regalos', setSisRegalo)} id="sis-reg" etiqueta="Tallas en la hoja" />
           <div className="row-actions">{boton('regalos', `Descargar ${lista.length} ${lista.length === 1 ? 'hoja' : 'hojas'}`, !lista.length)}</div>
         </>
       )}

@@ -1,8 +1,8 @@
-const VERSION = 4;
+const VERSION = 5;
 const HOJA = 'Ninos';
 const HOJA_FOTOS = 'Fotos';
 const HOJA_CASAS = 'Casas';
-const COLUMNAS = ['id', 'nombre', 'casa', 'nacimiento', 'tallaRopa', 'tallaZapatos', 'notas', 'actualizado', 'colorFavorito', 'pasatiempos', 'deseos', 'tallasFecha', 'descripcion', 'sexo'];
+const COLUMNAS = ['id', 'nombre', 'casa', 'nacimiento', 'tallaRopa', 'tallaZapatos', 'notas', 'actualizado', 'colorFavorito', 'pasatiempos', 'deseos', 'tallasFecha', 'descripcion', 'sexo', 'tallaRopaEC', 'tallaZapatosEC'];
 const COLUMNAS_CASAS = ['casa', 'padres', 'bio', 'actualizado'];
 const DIAS_SESION = 30;
 const MAX_FALLOS = 8;
@@ -171,6 +171,8 @@ function limpiarNino(n) {
     nacimiento: fechaValida(n.nacimiento),
     tallaRopa: texto(n.tallaRopa, 20),
     tallaZapatos: texto(n.tallaZapatos, 20),
+    tallaRopaEC: texto(n.tallaRopaEC, 20),
+    tallaZapatosEC: texto(n.tallaZapatosEC, 20),
     notas: texto(n.notas, 300),
     colorFavorito: texto(n.colorFavorito, 40),
     pasatiempos: texto(n.pasatiempos, 200),
@@ -178,6 +180,10 @@ function limpiarNino(n) {
     descripcion: texto(n.descripcion, 900),
     sexo: sexoValido(n.sexo)
   };
+}
+
+function tieneTallas(n) {
+  return !!(n.tallaRopa || n.tallaZapatos || n.tallaRopaEC || n.tallaZapatosEC);
 }
 
 function sexoValido(v) {
@@ -268,11 +274,13 @@ function guardar(n) {
       })
     : -1;
   const previo = i >= 0 ? aObjeto(todas[i], m, COLUMNAS) : null;
-  const cambiaronTallas = !previo || previo.tallaRopa !== limpio.tallaRopa || previo.tallaZapatos !== limpio.tallaZapatos;
+  const cambiaronTallas = !previo || ['tallaRopa', 'tallaZapatos', 'tallaRopaEC', 'tallaZapatosEC'].some(function (k) {
+    return (previo[k] || '') !== limpio[k];
+  });
   const o = Object.assign({}, limpio, {
     id: previo ? previo.id : Utilities.getUuid(),
     actualizado: ahora,
-    tallasFecha: cambiaronTallas ? (limpio.tallaRopa || limpio.tallaZapatos ? ahora : '') : previo.tallasFecha
+    tallasFecha: cambiaronTallas ? (tieneTallas(limpio) ? ahora : '') : previo.tallasFecha
   });
   const fila = aFila(o, m, COLUMNAS, m.__ancho);
   if (i >= 0) h.getRange(i + 2, 1, 1, fila.length).setValues([fila]);
@@ -303,7 +311,7 @@ function importar(lista) {
   lista.slice(0, 500).forEach(function (n) {
     try {
       const l = limpiarNino(n);
-      const o = Object.assign({}, l, { id: Utilities.getUuid(), actualizado: ahora, tallasFecha: l.tallaRopa || l.tallaZapatos ? ahora : '' });
+      const o = Object.assign({}, l, { id: Utilities.getUuid(), actualizado: ahora, tallasFecha: tieneTallas(l) ? ahora : '' });
       nuevas.push(aFila(o, m, COLUMNAS, m.__ancho));
     } catch (err) {}
   });
@@ -443,7 +451,7 @@ function leerHorario(mes) {
 function mesesGuardados() {
   return filasHorarios()
     .filter(function (f) {
-      return /^20\d\d-\d\d$/.test(f[0]) && f[1];
+      return /^20\d\d-\d\d$/.test(f[0]) && f[1] && f[1].indexOf('"dias":{}') < 0;
     })
     .map(function (f) {
       return { mes: f[0], actualizado: f[2] };

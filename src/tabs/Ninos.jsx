@@ -15,10 +15,30 @@ import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borr
 
 const normal = (n) => ({ ...n, nacimiento: leerFecha(n.nacimiento) || String(n.nacimiento || '') });
 
-const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', notas: '', descripcion: '', colorFavorito: '', pasatiempos: '', deseos: '', sexo: '' };
+const VACIO = { id: '', nombre: '', casa: '', nacimiento: '', tallaRopa: '', tallaZapatos: '', tallaRopaEC: '', tallaZapatosEC: '', notas: '', descripcion: '', colorFavorito: '', pasatiempos: '', deseos: '', sexo: '' };
+function Talla({ us, ec }) {
+  if (!us && !ec) return <span className="hint">—</span>;
+  return (
+    <span className="tallas2">
+      {us && (
+        <span>
+          <i>US</i>
+          {us}
+        </span>
+      )}
+      {ec && (
+        <span>
+          <i>EC</i>
+          {ec}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const iniciales = (nombre) => String(nombre || '').split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
-function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, puedeSexo, onFoto, onQuitarFoto }) {
+function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, puedeSexo, puedeEC, onFoto, onQuitarFoto }) {
   const [n, setN] = useState(inicial);
   const [error, setError] = useState('');
   const [confirmar, setConfirmar] = useState(false);
@@ -63,14 +83,18 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, fot
           Cumpleaños {e != null && <span className="hint">· {e} años</span>}
           <input id="f-nac" type="date" value={n.nacimiento} onChange={set('nacimiento')} max={new Date().toISOString().slice(0, 10)} />
         </label>
-        <label className="campo">
-          Talla de ropa
-          <input id="f-ropa" value={n.tallaRopa} onChange={set('tallaRopa')} placeholder="Ej. 10 o M" />
-        </label>
-        <label className="campo">
-          Talla de zapatos
-          <input id="f-zap" value={n.tallaZapatos} onChange={set('tallaZapatos')} placeholder="Ej. 32" />
-        </label>
+        <fieldset className="tallas-campos span4">
+          <legend>Tallas</legend>
+          <span />
+          <span className="cab">Americana</span>
+          <span className="cab">Ecuador</span>
+          <span className="tipo">Ropa</span>
+          <input id="f-ropa" aria-label="Talla de ropa americana" value={n.tallaRopa} onChange={set('tallaRopa')} placeholder="Ej. 14 youth" />
+          <input id="f-ropa-ec" aria-label="Talla de ropa Ecuador" value={n.tallaRopaEC || ''} onChange={set('tallaRopaEC')} placeholder={puedeEC ? 'Ej. 12' : 'Actualiza Code.gs'} disabled={!puedeEC} />
+          <span className="tipo">Zapatos</span>
+          <input id="f-zap" aria-label="Talla de zapatos americana" value={n.tallaZapatos} onChange={set('tallaZapatos')} placeholder="Ej. 4 youth" />
+          <input id="f-zap-ec" aria-label="Talla de zapatos Ecuador" value={n.tallaZapatosEC || ''} onChange={set('tallaZapatosEC')} placeholder={puedeEC ? 'Ej. 35' : 'Actualiza Code.gs'} disabled={!puedeEC} />
+        </fieldset>
         <label className="campo span4">
           Notas
           <input id="f-notas" value={n.notas} onChange={set('notas')} placeholder="Opcional" />
@@ -195,8 +219,12 @@ function Importar({ existentes, onImportar, onCerrar, importando }) {
                     <td>{n.nombre}</td>
                     <td>{n.casa}</td>
                     <td>{n.nacimiento ? cumpleCorto(n.nacimiento) + ' ' + n.nacimiento.slice(0, 4) : n.fechaDudosa ? <span className="err-txt">No entendí “{n.fechaDudosa}”</span> : ''}</td>
-                    <td>{n.tallaRopa}</td>
-                    <td>{n.tallaZapatos}</td>
+                    <td>
+                      <Talla us={n.tallaRopa} ec={n.tallaRopaEC} />
+                    </td>
+                    <td>
+                      <Talla us={n.tallaZapatos} ec={n.tallaZapatosEC} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -440,11 +468,11 @@ export default function Ninos() {
         </div>
       )}
       {aviso && <div className="alert ok-msg">{aviso}</div>}
-      {ninos && version < 3 && (
+      {ninos && version < 5 && (
         <div className="alert warn">
           <b>Falta actualizar el código de Google</b>
           <span>
-            La lista funciona, pero para {version < 2 ? 'fotos, casas, hojas de regalos, tallas con fecha y marcar niño o niña' : 'marcar si es niño o niña'} hay que pegar el Code.gs nuevo en Apps Script y crear una nueva versión de la implementación.
+            La lista funciona, pero para {version < 2 ? 'fotos, casas, hojas de regalos, tallas con fecha, marcar niño o niña y tallas de Ecuador' : version < 3 ? 'marcar si es niño o niña y guardar tallas de Ecuador' : 'guardar las tallas de Ecuador'} hay que pegar el Code.gs nuevo en Apps Script y crear una nueva versión de la implementación.
           </span>
         </div>
       )}
@@ -458,6 +486,7 @@ export default function Ninos() {
           foto={ficha.id ? fotos[ficha.id] : ''}
           puedeFoto={version >= 2}
           puedeSexo={version >= 3}
+          puedeEC={version >= 5}
           onFoto={(data) => subirFoto(ficha.id, data)}
           onQuitarFoto={() => quitarFoto(ficha.id)}
           onCancelar={() => setFicha(null)}
@@ -649,10 +678,12 @@ export default function Ninos() {
                         </td>
                         <td className="n">{e ?? '—'}</td>
                         <td>
-                          {n.tallaRopa || <span className="hint">—</span>}
+                          <Talla us={n.tallaRopa} ec={n.tallaRopaEC} />
                           {esVieja(n) && <span className="tag vieja" title="Las tallas no se actualizan hace más de 6 meses">revisar</span>}
                         </td>
-                        <td>{n.tallaZapatos || <span className="hint">—</span>}</td>
+                        <td>
+                          <Talla us={n.tallaZapatos} ec={n.tallaZapatosEC} />
+                        </td>
                         <td>
                           <button
                             className="mini"
