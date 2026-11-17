@@ -1,4 +1,4 @@
-const VERSION = 5;
+const VERSION = 6;
 const HOJA = 'Ninos';
 const HOJA_FOTOS = 'Fotos';
 const HOJA_CASAS = 'Casas';
@@ -10,6 +10,9 @@ const MINUTOS_BLOQUEO = 15;
 const MAX_FOTO = 48000;
 const HOJA_HORARIOS = 'Horarios';
 const MAX_HORARIO = 45000;
+const MAX_PERSONAL = 300;
+const CARPETA_COPIAS = 'Copias de Oficina Hacienda';
+const COPIAS_QUE_QUEDAN = 8;
 
 function doGet() {
   return ContentService.createTextOutput('Oficina Hacienda: servicio activo.');
@@ -42,6 +45,9 @@ function atender(datos) {
   if (accion === 'horarios') return { ok: true, version: VERSION, meses: mesesGuardados() };
   if (accion === 'guardarHorario') return conCandado(() => ({ ok: true, actualizado: guardarDato(mesValido(datos.mes), datos.horario) }));
   if (accion === 'guardarConfig') return conCandado(() => ({ ok: true, actualizado: guardarDato('config', datos.config) }));
+  if (accion === 'personal') return { ok: true, version: VERSION, datos: leerPersonal() };
+  if (accion === 'guardarPersonal') return conCandado(() => ({ ok: true, actualizado: guardarPersonal(datos.lista) }));
+  if (accion === 'inicio') return { ok: true, version: VERSION, datos: inicio(String(datos.mes || '')) };
   if (accion === 'guardarCasa') return conCandado(() => ({ ok: true, casa: guardarCasa(datos.casa || {}) }));
   return { ok: false, error: 'Acción desconocida.' };
 }
@@ -479,4 +485,85 @@ function prepararHoja() {
   hojaFotos();
   mapa(hojaCon(HOJA_CASAS, COLUMNAS_CASAS), COLUMNAS_CASAS);
   secreto();
+}
+
+function leerPersonal() {
+  const f = filasHorarios().filter(function (x) {
+    return x[0] === 'personal';
+  })[0];
+  const d = f ? parsear(f[1]) : null;
+  return { lista: d && Array.isArray(d.lista) ? d.lista : null, actualizado: f ? f[2] : '' };
+}
+
+function limpiarPersona(p) {
+  if (!p || typeof p !== 'object') return null;
+  const id = texto(p.id, 40);
+  if (!id) return null;
+  const alias = Array.isArray(p.alias) ? p.alias.slice(0, 20).map(function (a) { return texto(a, 30); }).filter(String) : [];
+  const o = { id: id, nombre: texto(p.nombre, 60) || id, alias: alias, fijo: !!p.fijo, casa: texto(p.casa, 30), completo: texto(p.completo, 120), cedula: String(p.cedula || '').replace(/[^0-9]/g, '').slice(0, 13), hasta: /^20\d\d-\d\d$/.test(String(p.hasta || '')) ? String(p.hasta) : '' };
+  if (p.hor && typeof p.hor === 'object') o.hor = { n: texto(p.hor.n, 60), rol: texto(p.hor.rol, 10), casa: texto(p.hor.casa, 30), hasta: /^20\d\d-\d\d$/.test(String(p.hor.hasta || '')) ? String(p.hor.hasta) : '' };
+  return o;
+}
+
+function guardarPersonal(lista) {
+  if (!Array.isArray(lista) || lista.length > MAX_PERSONAL) throw new Error('personal');
+  const vistos = {};
+  const limpia = lista.map(limpiarPersona).filter(function (p) {
+    if (!p || vistos[p.id]) return false;
+    vistos[p.id] = true;
+    return true;
+  });
+  return guardarDato('personal', { lista: limpia });
+}
+
+function inicio(mes) {
+  const m = mesValido(mes);
+  const sig = m.slice(5) === '12' ? +m.slice(0, 4) + 1 + '-01' : m.slice(0, 5) + ('0' + (+m.slice(5) + 1)).slice(-2);
+  const out = { mes: m, horario: null, horarioSiguiente: null, config: null, siguiente: false, cumples: [], ultimaCopia: String(propiedades().getProperty('ULTIMA_COPIA') || '') };
+  filasHorarios().forEach(function (f) {
+    if (f[0] === m) out.horario = parsear(f[1]);
+    else if (f[0] === 'config') out.config = parsear(f[1]);
+    else if (f[0] === sig) {
+      out.siguiente = !!f[1] && f[1].indexOf('"dias":{}') < 0;
+      out.horarioSiguiente = parsear(f[1]);
+    }
+  });
+  const h = hoja();
+  const mp = mapa(h, COLUMNAS);
+  out.cumples = filasDe(h, mp)
+    .filter(function (f) {
+      return f[mp.id] && f[mp.nacimiento];
+    })
+    .map(function (f) {
+      return { nombre: f[mp.nombre], casa: f[mp.casa], nacimiento: f[mp.nacimiento] };
+    });
+  return out;
+}
+
+function copiaSemanal() {
+  const libro = SpreadsheetApp.getActiveSpreadsheet();
+  const archivo = DriveApp.getFileById(libro.getId());
+  const carpetas = DriveApp.getFoldersByName(CARPETA_COPIAS);
+  const carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(CARPETA_COPIAS);
+  const ahora = new Date();
+  archivo.makeCopy('Copia Oficina Hacienda ' + ahora.toISOString().slice(0, 10), carpeta);
+  const copias = [];
+  const it = carpeta.getFiles();
+  while (it.hasNext()) copias.push(it.next());
+  copias.sort(function (a, b) {
+    return b.getDateCreated().getTime() - a.getDateCreated().getTime();
+  });
+  copias.slice(COPIAS_QUE_QUEDAN).forEach(function (f) {
+    f.setTrashed(true);
+  });
+  propiedades().setProperty('ULTIMA_COPIA', ahora.toISOString());
+  return ahora.toISOString();
+}
+
+function activarCopias() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'copiaSemanal') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('copiaSemanal').timeBased().everyWeeks(1).onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  return copiaSemanal();
 }

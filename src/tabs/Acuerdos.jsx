@@ -62,7 +62,7 @@ function FormCedula({ persona, onGuardar, onCancelar }) {
   );
 }
 
-export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, over, setOver, onHorario, onHorarioApp, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
+export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, nube, over, setOver, onHorario, onHorarioApp, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
   const [abierto, setAbierto] = useState(null);
   const [verIdx, setVerIdx] = useState(0);
   const porId = useMemo(() => new Map(personal.map((p) => [p.id, p])), [personal]);
@@ -337,7 +337,7 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
           </div>
         </>
       )}
-      <Personal personal={personal} setPersonal={setPersonal} />
+      <Personal personal={personal} setPersonal={setPersonal} nube={nube} />
     </section>
   );
 }

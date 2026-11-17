@@ -41,7 +41,7 @@ const ultimo = (id) => [27, 28, 29].some((d) => cn.donde(id, d));
 const padres = config.personal.filter((p) => p.rol === 'padre');
 ok(padres.every((p) => ultimo(p.id) !== cd.findes[0].dias.some((d) => cd.donde(p.id, d))), 'diciembre: los padres que trabajaron el 27-29 de noviembre descansan el 4-6: ' + padres.map((p) => p.n + (ultimo(p.id) ? ' descansa' : ' trabaja')).join(', '));
 ok(padres.every((p) => cd.findesDe(p.id) === 2), 'cada padre de casa 2 fines de semana');
-ok(!P.some((p) => p.tipo !== 'falta'), 'sin choques ni reglas rotas');
+ok(!P.some((p) => p.tipo !== 'falta' && !/hace un fin de semana más/.test(p.t)), 'sin choques ni reglas rotas (solo el aviso de quién hace un fin de semana más): ' + P.filter((p) => p.tipo !== 'falta').map((p) => p.t).join(' | '));
 console.log('   faltas en diciembre:', P.length, [...new Set(P.map((p) => p.k))].join(', '));
 ok(A.en(r.horario, 1, 'On Call').join() === (ultimo('viviana') ? 'viviana' : '') && A.en(r.horario, 3, 'On Call').join() === A.en(r.horario, 1, 'On Call').join(), 'on call del 1 al 3 de diciembre porque Viviana ' + (ultimo('viviana') ? 'trabajó' : 'no trabajó') + ' el último fin de semana de noviembre');
 ok(A.moverMes('2026-12', 1) === '2027-01' && A.moverMes('2027-01', -1) === '2026-12', 'cambio de año');

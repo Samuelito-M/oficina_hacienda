@@ -10,7 +10,7 @@ export const DIAS_SEM = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 export const DIAS_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 export const ROLES = { padre: 'Padre o madre de casa', aux: 'Auxiliar', finde: 'Auxiliar solo de fin de semana' };
 export const REGLAS_DESDE = '2026-12';
-export const REGLAS_BASE = { findesPadres: 2, findesAux: 3, sinPadres: 2, auxMin: { 'Casa 1': 1, 'Casa 2': 0, 'Casa 3': 1, 'Casa 4': 1, 'Casa Esther': 1 } };
+export const REGLAS_BASE = { findesPadres: 2, findesAux: 3, sinPadres: 2, extraFinde: true, auxMin: { 'Casa 1': 1, 'Casa 2': 0, 'Casa 3': 1, 'Casa 4': 1, 'Casa Esther': 1 } };
 const FINDE = [5, 6, 0];
 const TODOS = [0, 1, 2, 3, 4, 5, 6];
 const sin = (w) => TODOS.filter((x) => x !== w);
@@ -76,7 +76,7 @@ export function normalizarConfig(c) {
   const r = c.reglas || {};
   const auxMin = {};
   for (const casa of CASAS) auxMin[casa] = numero(r.auxMin && r.auxMin[casa], REGLAS_BASE.auxMin[casa], 4);
-  return { v: 3, personal: validos.map(persona), reglas: { findesPadres: numero(r.findesPadres, 2, 5), findesAux: numero(r.findesAux, 3, 5), sinPadres: numero(r.sinPadres, 2, 4), auxMin } };
+  return { v: 3, personal: validos.map(persona), reglas: { findesPadres: numero(r.findesPadres, 2, 5), findesAux: numero(r.findesAux, 3, 5), sinPadres: numero(r.sinPadres, 2, 4), extraFinde: r.extraFinde !== false, auxMin } };
 }
 
 export const casasDe = (p) => (p && Array.isArray(p.casas) ? p.casas : []);
@@ -240,7 +240,7 @@ export function problemas(ctx, semana = null) {
     const max = ctx.tope(p);
     if (suyos.length > max) {
       const d = suyos[max].dias.find((x) => ctx.donde(p.id, x));
-      if (dentro(d)) out.push({ tipo: 'regla', d, k: ctx.donde(p.id, d), t: `${p.n} trabaja ${suyos.length} fines de semana (lo normal son ${max})` });
+      if (dentro(d)) out.push({ tipo: 'regla', d, k: ctx.donde(p.id, d), t: suyos.length === max + 1 ? `${p.n} hace un fin de semana más este mes: ${suyos.length} (lo normal son ${max})` : `${p.n} trabaja ${suyos.length} fines de semana (lo normal son ${max})` });
     }
   }
   return out;
@@ -479,7 +479,7 @@ export function armar(clave, horario, config, anterior) {
   const puedeIr = (p, g) => !g.dias.some((d) => ctx.donde(p.id, d)) && g.dias.every((d) => libre(p, d) || !p.dias.includes(ctx.wd(d))) && g.dias.some((d) => libre(p, d));
   const demanda = porArmar.reduce((a, g) => a + CASAS.reduce((x, c) => x + faltaEn(g, c), 0), 0);
   const oferta = auxFinde.reduce((a, p) => a + Math.max(0, Math.min(topeAux - ctx.findesDe(p.id), porArmar.filter((g) => puedeIr(p, g)).length)), 0);
-  let recorte = Math.max(0, demanda - oferta);
+  let recorte = R.extraFinde ? 0 : Math.max(0, demanda - oferta);
   for (const g of [...porArmar].reverse()) {
     g.menos = 0;
     if (recorte > 0 && !g.estado['Casa 2'] && faltaEn(g, 'Casa 2') > 1) {
@@ -510,6 +510,23 @@ export function armar(clave, horario, config, anterior) {
       if (!p) return;
       for (const d of g.dias) if (libre(p, d)) agregar(d, puestos[i], p.id);
     });
+  }
+
+  const extras = [];
+  if (R.extraFinde) {
+    const veces = (id) => extras.filter((x) => x.id === id).length;
+    for (const g of porArmar) {
+      for (const c of [...CASAS].sort((a, b) => (a === 'Casa 2') - (b === 'Casa 2'))) {
+        while (faltaEn(g, c) > 0) {
+          const cand = auxFinde.filter((p) => p.casas.includes(c) && puedeIr(p, g) && ctx.findesDe(p.id) <= topeAux);
+          if (!cand.length) break;
+          cand.sort((a, b) => ctx.findesDe(a.id) - ctx.findesDe(b.id) || veces(a.id) - veces(b.id) || costoCasa(a, c, 'f') - costoCasa(b, c, 'f') || auxFinde.indexOf(a) - auxFinde.indexOf(b));
+          const p = cand[0];
+          for (const d of g.dias) if (libre(p, d)) agregar(d, c, p.id);
+          if (ctx.findesDe(p.id) > topeAux) extras.push({ id: p.id, n: p.n, casa: c, dias: g.dias.filter((d) => ctx.donde(p.id, d) === c), total: ctx.findesDe(p.id) });
+        }
+      }
+    }
   }
 
   let ayer = {};
@@ -547,7 +564,7 @@ export function armar(clave, horario, config, anterior) {
       }
     }
   }
-  return { horario: h, nuevos, casas: nuevos.length - calls, calls };
+  return { horario: h, nuevos, casas: nuevos.length - calls, calls, extras };
 }
 
 export function ponerEnBloque(ctx, d, k, ids, todo) {

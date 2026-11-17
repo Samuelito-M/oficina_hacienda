@@ -361,6 +361,10 @@ function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
           <h4 className="h-grupo">Fines de semana al mes</h4>
           <Regla id="h-r-padres" texto="Fines de semana que trabajan los padres de casa (uno sí, uno no)" valor={R.findesPadres} max={5} onCambio={(v) => regla({ findesPadres: v })} />
           <Regla id="h-r-aux" texto="Fines de semana que trabaja cada auxiliar (uno más si el mes trae 5)" valor={R.findesAux} max={5} onCambio={(v) => regla({ findesAux: v })} />
+          <label className="h-regla h-check">
+            <span>Si no alcanza la gente un fin de semana, que alguien haga un fin de semana más (la app te dice quién)</span>
+            <input type="checkbox" id="h-r-extra" checked={R.extraFinde !== false} onChange={(e) => regla({ extraFinde: e.target.checked })} />
+          </label>
           <h4 className="h-grupo">Cuántos auxiliares por casa</h4>
           <Regla id="h-r-sin" texto="Fin de semana que los padres de casa descansan" valor={R.sinPadres} max={4} onCambio={(v) => regla({ sinPadres: v })} />
           <p className="hint">Siempre, además de los padres (de lunes a jueves y también cuando los padres trabajan):</p>
@@ -483,11 +487,11 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, avisar, onConfig }) {
+export default function Horario({ personal, avisar, onConfig, mesInicial }) {
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
-  const [clave, setClave] = useState(claveMes(hoy.getFullYear(), hoy.getMonth()));
+  const [clave, setClave] = useState(mesInicial || claveMes(hoy.getFullYear(), hoy.getMonth()));
   const [estado, setEstado] = useState('cargando');
   const [error, setError] = useState('');
   const [horario, setHorario] = useState(null);
@@ -650,9 +654,12 @@ export default function Horario({ personal, avisar, onConfig }) {
     }
     const quedan = problemas(contexto(clave, r.horario, config)).filter((p) => p.tipo === 'falta');
     const casasQ = Array.from(new Set(quedan.map((p) => p.k)));
+    const rango = (x) => (x.dias.length > 1 ? `del ${x.dias[0]} al ${x.dias[x.dias.length - 1]}` : `el ${x.dias[0]}`);
+    const extra = r.extras && r.extras.length ? ` Para que no falte gente, ${r.extras.map((x) => `${x.n} hace un ${x.total}.º fin de semana (${x.casa}, ${rango(x)})`).join(' y ')}.` : '';
     const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): quedaron marcados en verde para que los revises.` : '';
-    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
-    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.');
+    if (extra) setNotas((n) => [...n.filter((x) => !x.startsWith('Para que no falte gente')), extra.trim()]);
+    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${extra}${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
+    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${extra}${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.');
   };
 
   const subir = async (file) => {

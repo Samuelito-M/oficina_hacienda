@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import * as PDFLib from 'pdf-lib';
 import pdfjs from './lib/pdfjs.js';
@@ -7,6 +7,7 @@ import Casas from './tabs/Casas.jsx';
 import Menu from './tabs/Menu.jsx';
 import Ninos from './tabs/Ninos.jsx';
 import Horario from './tabs/Horario.jsx';
+import Inicio from './tabs/Inicio.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
 import { leerGrillaExcel, analizarHorarioExcel } from './lib/horarioExcel.js';
 import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acuerdos.js';
@@ -17,14 +18,16 @@ import { cargarPersonal, guardarPersonal, fusionarPersonas, sincronizarConHorari
 import { descargar, abrirPdf, extension, leerBytes, MIME, nombreSeguro } from './lib/archivos.js';
 import { MESES, fechaCorta } from './lib/text.js';
 import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib/horarioApp.js';
+import { leerConexion, llamar } from './lib/ninos.js';
+import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar } from './lib/personalNube.js';
 
-const TABS = ['acuerdos', 'casas', 'menu', 'ninos', 'horario'];
+const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.11';
+const VERSION = '1.12';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
-  return TABS.includes(h) ? h : 'acuerdos';
+  return TABS.includes(h) ? h : 'inicio';
 }
 
 function cargarDic() {
@@ -53,6 +56,7 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [guardadoOk, setGuardadoOk] = useState(true);
   const [horConfig, setHorConfig] = useState(null);
+  const [mesHorario, setMesHorario] = useState(null);
 
   useEffect(() => {
     const f = () => setTab(leerTab());
@@ -61,17 +65,90 @@ export default function App() {
   }, []);
   useEffect(() => {
     document.body.dataset.tab = tab;
+    if (tab !== 'horario') setMesHorario(null);
   }, [tab]);
+  const irAHorario = (mes) => {
+    setMesHorario(mes);
+    location.hash = '#horario';
+  };
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(''), 5000);
     return () => clearTimeout(t);
   }, [toast]);
 
+  const [nube, setNubeState] = useState({ estado: 'local' });
+  const nubeRef = useRef(nube);
+  const personalRef = useRef(personal);
+  personalRef.current = personal;
+  const espera = useRef(null);
+  const setNube = (n) => {
+    nubeRef.current = n;
+    setNubeState(n);
+  };
+
+  const subirNube = useCallback(async (lista) => {
+    clearTimeout(espera.current);
+    espera.current = null;
+    const c = leerConexion();
+    if (!c.token || !c.url) return setNube({ estado: 'local' });
+    try {
+      await llamar(c.url, { accion: 'guardarPersonal', token: c.token, lista: paraGuardar(lista) });
+      if (personalRef.current === lista) marcarPendiente(false);
+      setNube({ estado: 'ok' });
+    } catch (err) {
+      setNube(err.codigo === 'sesion' ? { estado: 'local' } : { estado: 'error', mensaje: err.message || 'No se pudo guardar en Google.' });
+    }
+  }, []);
+
+  const conectarNube = useCallback(async () => {
+    const c = leerConexion();
+    if (!c.token || !c.url) return setNube({ estado: 'local' });
+    setNube({ estado: 'cargando' });
+    try {
+      const r = await llamar(c.url, { accion: 'personal', token: c.token });
+      const servidor = r.datos && Array.isArray(r.datos.lista) ? r.datos.lista : null;
+      const local = personalRef.current;
+      const final = servidor ? mezclarPersonal(servidor, local, hayPendiente()) : local;
+      if (final !== local) {
+        setPersonalState(final);
+        setGuardadoOk(guardarPersonal(final));
+      }
+      if (!servidor || !mismaLista(final, servidor)) await subirNube(final);
+      else {
+        marcarPendiente(false);
+        setNube({ estado: 'ok' });
+      }
+    } catch (err) {
+      if (err.codigo === 'sesion') setNube({ estado: 'local' });
+      else if (err.message === 'Acción desconocida.') setNube({ estado: 'viejo' });
+      else setNube({ estado: 'error', mensaje: err.message || 'No se pudo conectar con Google.' });
+    }
+  }, [subirNube]);
+
+  useEffect(() => {
+    conectarNube();
+    window.addEventListener('oficina-sesion', conectarNube);
+    const oculta = () => {
+      if (document.visibilityState === 'hidden' && espera.current) subirNube(personalRef.current);
+    };
+    document.addEventListener('visibilitychange', oculta);
+    return () => {
+      window.removeEventListener('oficina-sesion', conectarNube);
+      document.removeEventListener('visibilitychange', oculta);
+    };
+  }, [conectarNube, subirNube]);
+
   const setPersonal = useCallback((lista) => {
+    personalRef.current = lista;
     setPersonalState(lista);
     setGuardadoOk(guardarPersonal(lista));
-  }, []);
+    marcarPendiente(true);
+    if (nubeRef.current.estado === 'ok' || nubeRef.current.estado === 'error') {
+      clearTimeout(espera.current);
+      espera.current = setTimeout(() => subirNube(lista), 800);
+    }
+  }, [subirNube]);
   useEffect(() => {
     if (!horConfig) return;
     const r = sincronizarConHorario(personal, horConfig);
@@ -272,6 +349,7 @@ export default function App() {
           </div>
           <nav aria-label="Herramientas">
             {[
+              ['inicio', 'Inicio'],
               ['acuerdos', 'Acuerdos'],
               ['casas', 'Cambio de casa'],
               ['menu', 'Menú'],
@@ -299,6 +377,7 @@ export default function App() {
             word={word}
             personal={personal}
             setPersonal={setPersonal}
+            nube={nube}
             over={over}
             setOver={setOver}
             onHorario={onHorario}
@@ -314,8 +393,9 @@ export default function App() {
           />
         )}
         {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onHorarioApp={onHorarioApp} onPdf={onPdf} generando={generando === 'pdf'} />}
+        {tab === 'inicio' && <Inicio personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} />}
         {tab === 'ninos' && <Ninos />}
-        {tab === 'horario' && <Horario personal={personal} avisar={setToast} onConfig={setHorConfig} />}
+        {tab === 'horario' && <Horario personal={personal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} />}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">
@@ -323,7 +403,7 @@ export default function App() {
               <rect x="5" y="11" width="14" height="9" rx="2" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
-            {tab === 'horario' ? 'El horario se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
+            {tab === 'inicio' ? 'Lo de esta semana sale de la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'horario' ? 'El horario se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
           </p>
         </div>
       </main>

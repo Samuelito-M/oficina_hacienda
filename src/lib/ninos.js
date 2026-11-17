@@ -55,6 +55,7 @@ export function guardarSesion(token, expira) {
   } catch {
     return false;
   }
+  avisarSesion();
   return true;
 }
 
@@ -64,7 +65,16 @@ export function borrarSesion() {
   } catch {
     return false;
   }
+  avisarSesion();
   return true;
+}
+
+function avisarSesion() {
+  try {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('oficina-sesion'));
+  } catch {
+    return;
+  }
 }
 
 export function borrarUrl() {

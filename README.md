@@ -46,6 +46,10 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 
 **Actualizar el código de Google** (cuando la app diga "Falta actualizar el código de Google"): abre Apps Script, borra todo, pega el `google/Code.gs` nuevo y guarda. Ejecuta `prepararHoja` una vez. Luego **Implementar → Administrar implementaciones → lápiz → Versión: Nueva versión → Implementar**. La dirección `/exec` no cambia y los datos no se pierden.
 
+**Copia de seguridad semanal** (una sola vez): en Apps Script, en la lista de funciones elige `activarCopias` y dale **Ejecutar**. Acepta los permisos. Cada domingo de madrugada Google guarda una copia completa de la hoja en la carpeta "Copias de Oficina Hacienda" de tu Drive y deja las 8 más nuevas. La pestaña Inicio avisa si la copia no está activada o si lleva más de 9 días sin hacerse. Para recuperar algo, abre la copia y copia los datos a la hoja original.
+
+**Lista de personal y cédulas en Google** (desde la versión 6 del código de Google): en cualquier computadora o celular que entre con la clave, la lista de Personal de Acuerdos se guarda en la hoja (pestaña "Horarios", fila "personal") y se ve igual en todos lados. Sin clave sigue guardándose solo en ese navegador.
+
 Para cambiar la clave, edita la propiedad `CLAVE` (paso 5). No hay que volver a implementar. Todos los dispositivos tendrán que escribir la clave nueva.
 
 La dirección `/exec` sola no muestra nada: sin la clave correcta no devuelve datos, y después de varios intentos fallidos se bloquea 15 minutos. Comparte la hoja de Google solo con quien la necesite, porque quien tenga acceso a la hoja ve los datos directamente.
@@ -62,7 +66,9 @@ La dirección `/exec` sola no muestra nada: sin la clave correcta no devuelve da
 2. Entra a https://app.netlify.com/drop y arrastra la carpeta.
 3. Para actualizar, en el sitio ve a Deploys y arrastra la carpeta otra vez.
 
-El personal guardado en el archivo de tu compu y el de la versión en Netlify son independientes. Usa una sola, o pasa los datos con Guardar copia / Cargar copia.
+Si entras con la clave, el personal es el mismo en el archivo de tu compu, en Netlify y en el celular. Sin clave, cada uno guarda el suyo (puedes pasarlo con Guardar copia / Cargar copia).
+
+**En el celular**: abre la dirección de Netlify. En Android (Chrome), menú ⋮ → "Instalar app". En iPhone (Safari), Compartir → "Agregar a inicio". Queda con su ícono como cualquier app.
 
 ## Cambiar el código
 

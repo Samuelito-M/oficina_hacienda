@@ -17,13 +17,18 @@ const fin = (id) => ctx.findes.map((f) => (f.dias.some((d) => ctx.donde(id, d)) 
 ok(padres.every((p) => ['S-S-', '-S-S'].includes(fin(p.id))), 'regla 1: saltan un fin de semana: ' + padres.map((p) => p.n + ' ' + fin(p.id)).join(', '));
 ok(fin('miguel') === fin('patricia') && fin('julian') === fin('alejandra'), 'regla 2: las parejas trabajan juntas');
 ok(padres.every((p) => { for (let d = 1; d <= 31; d++) { const c = ctx.donde(p.id, d); if (c && c !== p.casas[0]) return false; if (c && !ctx.finde(d)) return false; } return true; }), 'regla 2 y 10: padres solo en su casa y solo viernes a domingo');
-ok([...aux, ...finde].every((p) => ctx.findesDe(p.id) <= 3), 'regla 3 y 9: nadie pasa de 3 fines de semana: ' + [...aux, ...finde].map((p) => p.n + ' ' + ctx.findesDe(p.id)).join(', '));
+const extrasD = r.extras.map((x) => x.id);
+ok([...aux, ...finde].every((p) => ctx.findesDe(p.id) <= 3 || (ctx.findesDe(p.id) === 4 && extrasD.includes(p.id))) && extrasD.length <= 1, 'regla 3 y 9: solo pasa de 3 quien la app avisa que hace uno más (' + r.extras.map((x) => x.n).join(', ') + '): ' + [...aux, ...finde].map((p) => p.n + ' ' + ctx.findesDe(p.id)).join(', '));
 ok([...aux, ...finde].filter((p) => ctx.findesDe(p.id) === 3).length >= 8, 'casi todos llegan a 3 fines de semana');
 let r4 = true, vacias = 0; for (let d = 1; d <= 31; d++) for (const c of C) { const l = A.en(h, d, c); const nAux = l.filter((id) => !ctx.esPadre(id)).length; if (c !== 'Casa 2' && nAux < 1) r4 = false; if (!l.length) vacias++; }
 ok(r4, 'regla 4: siempre hay 1 auxiliar en Casa 1, 3, 4 y Esther');
 const faltas = P.filter((p) => p.tipo === 'falta');
-ok(faltas.every((p) => p.k === 'Casa 2') && faltas.length <= 3, 'lo único que puede faltar es el 2º auxiliar de Casa 2 un fin de semana: ' + faltas.map((p) => p.t).join(' | '));
-ok(!P.some((p) => p.tipo !== 'falta'), 'ningún otro aviso (choques, descansos, casas prohibidas)');
+ok(faltas.length === 0, 'con un fin de semana extra no falta nadie: ' + faltas.map((p) => p.t).join(' | '));
+ok(P.every((p) => p.tipo === 'falta' || /hace un fin de semana más/.test(p.t)), 'ningún otro aviso (choques, descansos, casas prohibidas): ' + P.map((p) => p.t).join(' | '));
+ok(P.filter((p) => /hace un fin de semana más/.test(p.t)).length === r.extras.length, 'la revisión dice quién hace el fin de semana extra');
+const sinExtra = A.armar('2026-12', vacio(), { ...cfg, reglas: { ...cfg.reglas, extraFinde: false } }, null);
+const cs = A.contexto('2026-12', sinExtra.horario, cfg);
+ok(!sinExtra.extras.length && [...aux, ...finde].every((p) => cs.findesDe(p.id) <= 3) && A.problemas(cs).filter((p) => p.tipo === 'falta').every((p) => p.k === 'Casa 2'), 'con la regla apagada, nadie pasa de 3 y lo que falta queda en Casa 2');
 ok(![...Array(31)].some((_, i) => ['Casa 1', 'Casa 4'].some((c) => A.en(h, i + 1, c).includes('myriam'))), 'regla 5: Myriam nunca en Casa 1 ni Casa 4');
 const veces = (id, c, fn = () => true) => [...Array(31)].filter((_, i) => fn(i + 1) && A.en(h, i + 1, c).includes(id)).length, total = (id, fn = () => true) => C.reduce((a, c) => a + veces(id, c, fn), 0);
 ok(veces('marivid', 'Casa 3') / total('marivid') > 0.7 && veces('yazmira', 'Casa 4') / total('yazmira') > 0.7, `regla 6: Marivid ${veces('marivid', 'Casa 3')}/${total('marivid')} días en Casa 3, Yazmira ${veces('yazmira', 'Casa 4')}/${total('yazmira')} en Casa 4`);
@@ -50,7 +55,8 @@ ok(padres.every((p) => ce.findesDe(p.id) <= 2), 'enero (5 fines de semana): padr
 ok(A.en(e.horario, 4, 'On Call').join() === (ce.donde('viviana', 2) ? 'viviana' : ''), 'enero: on call del lunes 4 según el fin de semana del 1 al 3');
 const f27 = A.armar('2027-02', vacio(), cfg, e.horario).horario; const cf = A.contexto('2027-02', f27, cfg);
 ok(A.en(f27, 1, 'On Call').join() === (ce.donde('viviana', 31) ? 'viviana' : '') && A.en(f27, 4, 'On Call').join() === A.en(f27, 1, 'On Call').join(), 'febrero empieza lunes: on call del 1 al 4 depende del último fin de semana de enero (' + (ce.donde('viviana', 31) ? 'trabajó' : 'no trabajó') + ')');
-ok([...aux, ...finde].every((p) => ce.findesDe(p.id) <= 4) && [...aux, ...finde].filter((p) => ce.findesDe(p.id) === 4).length >= 8, 'enero (5 fines de semana): auxiliares 4, descansan 1');
+const extrasE = e.extras.map((x) => x.id);
+ok([...aux, ...finde].every((p) => ce.findesDe(p.id) <= 4 || extrasE.includes(p.id)) && [...aux, ...finde].filter((p) => ce.findesDe(p.id) >= 4).length >= 8, 'enero (5 fines de semana): auxiliares 4, descansan 1, salvo quien la app avisa (' + e.extras.map((x) => x.n).join(', ') + ')');
 console.log('   enero faltas:', A.problemas(ce).filter((p) => p.tipo === 'falta').length, '· otros:', A.problemas(ce).filter((p) => p.tipo !== 'falta').map((p) => p.t).join(' | ') || 'ninguno');
 
 // mes que empieza en sábado/domingo: agosto 2026 (sábado 1) con julio

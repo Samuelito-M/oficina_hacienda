@@ -38,3 +38,15 @@ createRoot(document.getElementById('root')).render(
     </Protector>
   </StrictMode>
 );
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__instalar = e;
+  window.dispatchEvent(new Event('oficina-instalable'));
+});

@@ -2,6 +2,30 @@ import { useRef, useState } from 'react';
 import { CASAS, PERSONAL_BASE, cedulaValida, mesHoy, nombreMes, normalizarPersonal, nuevaPersona, sumarMes, trabajaEn } from '../lib/personal.js';
 import { squash } from '../lib/text.js';
 import { descargar, leerBytes } from '../lib/archivos.js';
+import { leerConexion } from '../lib/ninos.js';
+import Entrar from './Entrar.jsx';
+
+function Nube({ nube }) {
+  const [entrar, setEntrar] = useState(false);
+  const e = nube ? nube.estado : 'local';
+  if (e === 'ok') return <p className="nube ok">☁️ Guardado en Google. Cualquier computadora que entre con la clave ve esta misma lista.</p>;
+  if (e === 'cargando') return <p className="nube">Conectando con Google…</p>;
+  if (e === 'viejo') return <p className="nube mal">Para guardar esta lista en Google falta actualizar el código de Google a la versión 6. Mientras tanto se guarda solo en este navegador.</p>;
+  if (e === 'error') return <p className="nube mal">No se pudo guardar en Google ({nube.mensaje}). Se guardó en este navegador y se vuelve a intentar con el próximo cambio.</p>;
+  return (
+    <div className="nube">
+      <p>
+        Esta lista está guardada solo en este navegador.{' '}
+        {!entrar && (
+          <button type="button" className="btn-link" id="personal-nube" onClick={() => setEntrar(true)}>
+            Guardarla en Google
+          </button>
+        )}
+      </p>
+      {entrar && <Entrar url={leerConexion().url} texto="Con la misma clave de Niños y Horario. Así la lista y las cédulas se ven en cualquier computadora." onEntrar={() => setEntrar(false)} />}
+    </div>
+  );
+}
 
 function Celda({ valor, onCambio, ...rest }) {
   const [v, setV] = useState(valor);
@@ -13,7 +37,7 @@ function Celda({ valor, onCambio, ...rest }) {
   return <input value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== valor && onCambio(v)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} {...rest} />;
 }
 
-export default function Personal({ personal, setPersonal }) {
+export default function Personal({ personal, setPersonal, nube }) {
   const [msg, setMsg] = useState('');
   const [borrar, setBorrar] = useState(null);
   const [baja, setBaja] = useState(null);
@@ -31,8 +55,9 @@ export default function Personal({ personal, setPersonal }) {
       </summary>
       <div className="box-body">
         <p className="hint">
-          Las personas se agregan y se quitan en la pestaña Horario (Personal y reglas) y aparecen aquí solas. Aquí solo llena sus apellidos y cédula para el acuerdo. Esto se guarda en este navegador. Los fijos llevan acuerdo automático y los padres de casa deciden qué casas necesitan cambio de casa.
+          Las personas se agregan y se quitan en la pestaña Horario (Personal y reglas) y aparecen aquí solas. Aquí solo llena sus apellidos y cédula para el acuerdo. Los fijos llevan acuerdo automático y los padres de casa deciden qué casas necesitan cambio de casa.
         </p>
+        <Nube nube={nube} />
         <div className="tbox">
           <table className="ptable">
             <thead>
