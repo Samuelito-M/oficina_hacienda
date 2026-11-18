@@ -9,6 +9,7 @@ import Tallas from '../components/ninos/Tallas.jsx';
 import Documentos from '../components/ninos/Documentos.jsx';
 import CasasEditor from '../components/ninos/Casas.jsx';
 import Equipos from '../components/ninos/Equipos.jsx';
+import Album from '../components/ninos/Album.jsx';
 import { sexoDe } from '../lib/equipos.js';
 import Entrar from '../components/Entrar.jsx';
 import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borrarUrl, llamar, urlValida, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
@@ -38,7 +39,7 @@ function Talla({ us, ec }) {
 
 const iniciales = (nombre) => String(nombre || '').split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
-function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, puedeSexo, puedeEC, onFoto, onQuitarFoto }) {
+function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, foto, puedeFoto, puedeSexo, puedeEC, onFoto, onQuitarFoto, onVerFotos }) {
   const [n, setN] = useState(inicial);
   const [error, setError] = useState('');
   const [confirmar, setConfirmar] = useState(false);
@@ -57,6 +58,11 @@ function Ficha({ inicial, casas, onGuardar, onCancelar, onBorrar, guardando, fot
     >
       <h4>{inicial.id ? `Editar a ${inicial.nombre}` : 'Agregar niño'}</h4>
       <Foto url={foto} iniciales={iniciales(n.nombre)} puede={puedeFoto} guardadoAntes={!!inicial.id} onSubir={onFoto} onQuitar={onQuitarFoto} />
+      {inicial.id && onVerFotos && (
+        <button type="button" className="btn-link ficha-album" onClick={onVerFotos}>
+          📷 Ver las fotos de {inicial.nombre}
+        </button>
+      )}
       <div className="ficha-grid">
         <label className="campo span2">
           Nombre y apellido
@@ -258,6 +264,7 @@ export default function Ninos() {
   const [version, setVersion] = useState(2);
   const [casasData, setCasasData] = useState([]);
   const [fotos, setFotos] = useState({});
+  const [albumNino, setAlbumNino] = useState('');
   const fotosRef = useRef({});
   const conRef = useRef(con);
   conRef.current = con;
@@ -307,6 +314,16 @@ export default function Ninos() {
       else setError(err.message || 'No se pudo guardar.');
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const api = async (datos) => {
+    const c = conRef.current;
+    try {
+      return await llamar(c.url, { ...datos, token: c.token });
+    } catch (err) {
+      if (err.codigo === 'sesion') salirPorSesion(err);
+      throw err;
     }
   };
 
@@ -451,6 +468,17 @@ export default function Ninos() {
             Casas
           </button>
           <button
+            className="dl ghost"
+            id="ninos-fotos"
+            disabled={!ninos || !ninos.length}
+            onClick={() => {
+              setAlbumNino('');
+              abrir('album');
+            }}
+          >
+            Fotos
+          </button>
+          <button
             className="dl"
             onClick={() => {
               setPanel('ficha');
@@ -489,6 +517,10 @@ export default function Ninos() {
           puedeEC={version >= 5}
           onFoto={(data) => subirFoto(ficha.id, data)}
           onQuitarFoto={() => quitarFoto(ficha.id)}
+          onVerFotos={() => {
+            setAlbumNino(ficha.id);
+            abrir('album');
+          }}
           onCancelar={() => setFicha(null)}
           onGuardar={(n) =>
             accion({ accion: 'guardar', nino: n }, async (r) => {
@@ -569,6 +601,10 @@ export default function Ninos() {
             setFicha({ ...VACIO, ...n, nacimiento: leerFecha(n.nacimiento) || '' });
           }}
         />
+      )}
+
+      {panel === 'album' && ninos && (
+        <Album key={albumNino || 'todas'} ninos={ninos} fotos={fotos} asegurarFotos={asegurarFotos} api={api} inicial={albumNino} onCerrar={() => setPanel('')} />
       )}
 
       {panel === 'casas' && (

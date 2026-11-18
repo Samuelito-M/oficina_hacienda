@@ -4,7 +4,7 @@ const S = crear(__dirname + '/../google/Code.gs'); S.props.CLAVE = 'K';
 const tk = S.call({ accion: 'entrar', clave: 'K' }).token;
 ok(S.call({ accion: 'personal' }).error === 'sesion', 'sin clave no se puede leer el personal');
 let r = S.call({ accion: 'personal', token: tk });
-ok(r.ok && r.version === 6 && r.datos.lista === null, 'personal vacío al principio (versión 6)');
+ok(r.ok && r.version === 7 && r.datos.lista === null, 'personal vacío al principio');
 const lista = [{ id: 'rosa', nombre: 'Rosa', alias: ['rosa'], fijo: false, casa: '', completo: 'Pérez Rosa', cedula: '17-1234-5678', hasta: '', hor: { n: 'Rosa', rol: 'aux', casa: '', hasta: '' } }, { id: 'rosa', nombre: 'Doble' }, { id: '', nombre: 'Sin id' }, { id: 'pedro', nombre: 'Pedro', fijo: true, casa: 'Casa 4', hasta: '2026-12', extra: '<b>x</b>' }];
 r = S.call({ accion: 'guardarPersonal', token: tk, lista });
 ok(r.ok && r.actualizado, 'guarda el personal');
@@ -26,5 +26,5 @@ ok(S.drive.triggers.length === 1 && S.drive.files.length === 1, 'activar copias 
 S.ctx.activarCopias();
 ok(S.drive.triggers.length === 1, 'activarla dos veces no duplica la copia semanal');
 for (let k = 0; k < 10; k++) S.ctx.copiaSemanal();
-ok(S.drive.files.filter((f) => !f.borrado).length === 8 && S.drive.folders.length === 1, 'quedan solo las 8 copias más nuevas, en una carpeta');
+ok(S.drive.files.filter((f) => !f.isTrashed()).length === 8 && S.drive.folders.length === 1, 'quedan solo las 8 copias más nuevas, en una carpeta');
 ok(!!S.call({ accion: 'inicio', token: tk, mes: '2026-11' }).datos.ultimaCopia, 'inicio dice cuándo fue la última copia');

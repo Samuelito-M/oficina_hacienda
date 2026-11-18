@@ -1,3 +1,4 @@
+import Ventana from '../components/Ventana.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import * as PDFLib from 'pdf-lib';
@@ -69,29 +70,6 @@ function cuando(iso) {
   const hora = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   if (d.toDateString() === hoy.toDateString()) return `hoy a las ${hora}`;
   return `el ${d.getDate()} de ${MESES[d.getMonth()]}`;
-}
-
-function Ventana({ abierta, onCerrar, ancha, children, etiqueta }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (abierta && !d.open) d.showModal();
-    if (!abierta && d.open) d.close();
-  }, [abierta]);
-  return (
-    <dialog
-      ref={ref}
-      className={`h-dlg${ancha ? ' ancha' : ''}`}
-      aria-label={etiqueta}
-      onClose={onCerrar}
-      onClick={(e) => {
-        if (e.target === ref.current) onCerrar();
-      }}
-    >
-      {abierta && <div className="h-dlg-in">{children}</div>}
-    </dialog>
-  );
 }
 
 function Elegir({ ctx, d, k, onListo, onCerrar }) {

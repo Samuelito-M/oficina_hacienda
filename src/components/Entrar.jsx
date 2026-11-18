@@ -10,7 +10,13 @@ function Candado() {
   );
 }
 
-export default function Entrar({ url, onEntrar, mensaje, texto }) {
+const TXT = {
+  es: { url: 'La dirección debe ser la de la implementación de Google y terminar en /exec.', falta: 'Escribe la clave.', no: 'No se pudo entrar.', titulo: 'Esta sección tiene clave', dir: 'Dirección de la hoja de Google', conectado: 'Conectado a la hoja de niños.', cambiar: 'Cambiar dirección', clave: 'Clave', entrar: 'Entrar' },
+  en: { url: 'The address must be the Google deployment one and end in /exec.', falta: 'Type the password.', no: "Couldn't sign in.", titulo: 'This needs the password', dir: 'Google Sheet address', conectado: 'Connected to the Hacienda sheet.', cambiar: 'Change address', clave: 'Password', entrar: 'Enter' }
+};
+
+export default function Entrar({ url, onEntrar, mensaje, texto, idioma = 'es' }) {
+  const L = TXT[idioma] || TXT.es;
   const [u, setU] = useState(url);
   const [clave, setClave] = useState('');
   const [cambiarUrl, setCambiarUrl] = useState(!url);
@@ -19,8 +25,8 @@ export default function Entrar({ url, onEntrar, mensaje, texto }) {
   const enviar = async (e) => {
     e.preventDefault();
     setError('');
-    if (!urlValida(u)) return setError('La dirección debe ser la de la implementación de Google y terminar en /exec.');
-    if (!clave) return setError('Escribe la clave.');
+    if (!urlValida(u)) return setError(L.url);
+    if (!clave) return setError(L.falta);
     setCargando(true);
     try {
       const r = await llamar(u, { accion: 'entrar', clave });
@@ -29,7 +35,7 @@ export default function Entrar({ url, onEntrar, mensaje, texto }) {
       setClave('');
       onEntrar({ url: u.trim(), token: r.token, expira: r.expira });
     } catch (err) {
-      setError(err instanceof NinosError ? err.message : 'No se pudo entrar.');
+      setError(err instanceof NinosError ? err.message : L.no);
     } finally {
       setCargando(false);
     }
@@ -39,24 +45,24 @@ export default function Entrar({ url, onEntrar, mensaje, texto }) {
       <div className="lock-ic">
         <Candado />
       </div>
-      <h3>Esta sección tiene clave</h3>
+      <h3>{L.titulo}</h3>
       <p className="hint">{texto || 'La información de los niños solo la ven las personas que tienen la clave. Este dispositivo la va a recordar 30 días.'}</p>
       {mensaje && <div className="alert warn">{mensaje}</div>}
       {cambiarUrl ? (
         <label className="campo">
-          Dirección de la hoja de Google
+          {L.dir}
           <input id="ninos-url" value={u} onChange={(e) => setU(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" autoComplete="off" spellCheck="false" />
         </label>
       ) : (
         <p className="hint">
-          Conectado a la hoja de niños.{' '}
+          {L.conectado}{' '}
           <button type="button" className="btn-link" onClick={() => setCambiarUrl(true)}>
-            Cambiar dirección
+            {L.cambiar}
           </button>
         </p>
       )}
       <label className="campo">
-        Clave
+        {L.clave}
         <input id="ninos-clave" type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="current-password" autoFocus={!cambiarUrl} />
       </label>
       {error && (
@@ -66,7 +72,7 @@ export default function Entrar({ url, onEntrar, mensaje, texto }) {
       )}
       <button className="dl" disabled={cargando}>
         {cargando && <span className="spin" aria-hidden="true" />}
-        Entrar
+        {L.entrar}
       </button>
     </form>
   );

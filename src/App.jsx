@@ -8,6 +8,7 @@ import Menu from './tabs/Menu.jsx';
 import Ninos from './tabs/Ninos.jsx';
 import Horario from './tabs/Horario.jsx';
 import Inicio from './tabs/Inicio.jsx';
+import Asistente from './components/Asistente.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
 import { leerGrillaExcel, analizarHorarioExcel } from './lib/horarioExcel.js';
 import { leerWord, generarWord, bloquesQueSeQuedan, WordError } from './lib/acuerdos.js';
@@ -23,7 +24,7 @@ import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.12';
+const VERSION = '1.15';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -407,6 +408,7 @@ export default function App() {
           </p>
         </div>
       </main>
+      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} />
       {toast && (
         <div className="toast" role="status">
           {toast}

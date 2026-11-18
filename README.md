@@ -50,6 +50,15 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 
 **Lista de personal y cédulas en Google** (desde la versión 6 del código de Google): en cualquier computadora o celular que entre con la clave, la lista de Personal de Acuerdos se guarda en la hoja (pestaña "Horarios", fila "personal") y se ve igual en todos lados. Sin clave sigue guardándose solo en ese navegador.
 
+**Fotos de los niños** (desde la versión 7 del código de Google): en Niños → Fotos, la primera vez pega el enlace de la carpeta de Drive (puede ser una carpeta compartida o una unidad compartida; la cuenta dueña del Apps Script tiene que poder editarla). La app crea adentro:
+- `Todas las fotos/AAAA-MM/`: cada foto una sola vez.
+- `Casa 1/…/Nombre del niño/`: accesos directos a sus fotos (una foto de grupo aparece en la carpeta de cada niño sin ocupar más espacio).
+- `Sin ordenar/`: fotos donde no se reconoció a ningún niño.
+- `Miniaturas (no tocar)/`: las fotos chiquitas que usa el álbum de la app.
+Si un niño cambia de casa o de nombre en la app, su carpeta se mueve y se renombra sola. El reconocimiento de caras se hace en el navegador (programa face-api, carpeta `public/vendor` y `public/modelos`); las fotos no se mandan a ningún servicio de inteligencia artificial. Las caras que se corrigen se guardan como números (no como fotos) en la pestaña "Caras" de la hoja para reconocer mejor la próxima vez. Desde el archivo `Oficina Hacienda.html` abierto en la compu, el programa de caras se baja de internet (jsdelivr); desde Netlify se baja del mismo sitio.
+
+**Ayuda (chat)**: el botón 💬 Ayuda, abajo a la derecha, está en todas las pestañas. No usa inteligencia artificial ni servicios de afuera: entiende las preguntas con reglas propias (`src/lib/asistente/`). Responde cómo hacer cada cosa (los pasos están en `src/lib/asistente/guia.js`; para agregar un tema nuevo copia uno y cambia título, palabras clave y pasos) y datos de la hoja: quién trabaja, on call, días de una persona, quién descansa, cambio de casa, cumpleaños, edades, tallas, niños por casa y si el horario del mes ya está hecho. Para los datos pide la clave. Funciona en español y en inglés: detecta el idioma de cada pregunta y responde en ese idioma (botón ES/EN arriba del chat). Las palabras en inglés se traducen a las del motor en `texto.js` (FRASES_EN y PALABRAS_EN) y los pasos en inglés están en `guia.js` (EN).
+
 Para cambiar la clave, edita la propiedad `CLAVE` (paso 5). No hay que volver a implementar. Todos los dispositivos tendrán que escribir la clave nueva.
 
 La dirección `/exec` sola no muestra nada: sin la clave correcta no devuelve datos, y después de varios intentos fallidos se bloquea 15 minutos. Comparte la hoja de Google solo con quien la necesite, porque quien tenga acceso a la hoja ve los datos directamente.
