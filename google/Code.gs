@@ -599,6 +599,10 @@ function conDrive(fn) {
   } catch (e) {
     const m = String((e && e.message) || e);
     if (m === 'sinCarpeta') return { ok: false, error: 'sinCarpeta', mensaje: 'Primero elige la carpeta de Google Drive donde se guardan las fotos.' };
+    if (m === 'autorizar') return { ok: false, error: 'autorizar', mensaje: 'Falta darle permiso a Google Drive. En Apps Script elige la función activarCopias, toca Ejecutar y acepta los permisos (Revisar permisos → tu cuenta → Configuración avanzada → Ir al proyecto → Permitir). Después pega el enlace otra vez.' };
+    if (m === 'sinAcceso') return { ok: false, error: 'sinAcceso', mensaje: 'La cuenta de Google donde está el código de la app no puede ver esa carpeta. Abre la carpeta en Drive → Compartir → agrega esa cuenta como Editor. Si ya la tiene, revisa primero que Drive tenga permiso: en Apps Script ejecuta activarCopias una vez.' };
+    if (m === 'soloLectura') return { ok: false, error: 'soloLectura', mensaje: 'La cuenta del código puede ver la carpeta pero no guardar en ella. En Drive → Compartir, cámbiala de Lector a Editor.' };
+    if (m === 'papelera') return { ok: false, error: 'papelera', mensaje: 'Esa carpeta está en la papelera de Drive. Restáurala o elige otra.' };
     if (m === 'enlace') return { ok: false, error: 'enlace', mensaje: 'Ese enlace no es de una carpeta de Google Drive. Abre la carpeta en Drive y copia el enlace de arriba.' };
     if (m === 'foto') return { ok: false, error: 'foto', mensaje: 'La foto llegó dañada o es muy grande.' };
     if (m === 'noExiste') return { ok: false, error: 'noExiste', mensaje: 'Esa foto ya no está en el álbum.' };
@@ -688,12 +692,28 @@ function idDeEnlace(enlace) {
   return a[1];
 }
 
+function esPermisoDrive(e) {
+  return /required permissions|permisos necesarios|auth\/drive|authorization is required|se requiere autorizaci|necesitas autorizaci/i.test(String((e && e.message) || e));
+}
+
 function configurarCarpeta(enlace) {
   const id = idDeEnlace(enlace);
-  const c = carpetaPorId(id);
-  if (!c) throw new Error('enlace');
-  const prueba = c.createFolder('Prueba de Oficina Hacienda');
-  prueba.setTrashed(true);
+  let c;
+  try {
+    c = DriveApp.getFolderById(id);
+    c.getName();
+  } catch (e) {
+    if (esPermisoDrive(e)) throw new Error('autorizar');
+    throw new Error('sinAcceso');
+  }
+  if (c.isTrashed()) throw new Error('papelera');
+  try {
+    const prueba = c.createFolder('Prueba de Oficina Hacienda');
+    prueba.setTrashed(true);
+  } catch (e) {
+    if (esPermisoDrive(e)) throw new Error('autorizar');
+    throw new Error('soloLectura');
+  }
   propiedades().setProperty('FOTOS_CARPETA', id);
   guardarDato('carpetasFotos', { raiz: id, casas: {}, ninos: {}, meses: {} });
   return infoCarpeta();

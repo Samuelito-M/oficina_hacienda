@@ -169,6 +169,14 @@ export const GUIA = [
     tambien: ['fotosVer']
   },
   {
+    id: 'fotosZip',
+    titulo: 'Subir muchas fotos o un zip',
+    claves: { zip: 7, muchas: 6, masivo: 6, cientos: 6, mil: 6, comprimido: 6, monton: 6, foto: 2, fotos: 2, subir: 1, carpeta: 1 },
+    pasos: ['En **Niños** → **Fotos** → **Subir fotos**, toca **Subir un zip** o **Subir una carpeta**.', 'La app revisa las fotos una por una y **guarda solas en Drive** las que reconoce con seguridad. Arriba ves cuántas van.', 'Puedes **Pausar** y **Seguir**. Si se cierra la página, vuelve a elegir el mismo zip: sigue donde quedó y no repite fotos.', 'Al final revisa solo las que apartó (“No está segura” y “No reconoció a nadie”) y toca **Guardar en Drive**.'],
+    ir: 'ninos',
+    tambien: ['fotosSubir', 'fotosVer']
+  },
+  {
     id: 'fotosVer',
     titulo: 'Ver o corregir las fotos de un niño',
     claves: { ver: 2, fotos: 3, album: 3, corregir: 2, equivocada: 2, borrar: 1, sale: 1, quien: 1 },
@@ -230,6 +238,7 @@ const EN = {
   regalos: { titulo: 'Gift sheets, list, directory and birthdays', pasos: ['In **Niños**, tap **Documentos** (Documents).', 'Choose **Lista** (List), **Hojas de regalos** (Gift sheets), **Directorio** (Directory) or **Cumpleaños** (Birthdays).', 'For sizes choose Ecuador, Americana (US) or Ambas (Both) and download the PDF.'] },
   equipos: { titulo: 'Split the kids into teams', pasos: ['In **Niños**, tap **Equipos** (Teams).', 'Choose who participates and how many teams, or split by **Niñas y niños** (girls and boys), **Edad** (age) or **Casa** (house).', 'You can balance boys and girls and separate siblings. Then download or print the groups.'] },
   fotosSubir: { titulo: "Upload the kids' photos", pasos: ['In **Niños**, tap **Fotos** → **Subir fotos** (Upload photos) and choose the photos (many at once).', 'The app recognizes the kids. Check the names: the ones with “¿Name?” it isn’t sure about. Tap a face to fix it or **+ Agregar niño** (add child).', 'Tap **Guardar en Drive** (Save to Drive). Each photo goes to each child’s folder (House → Child).'] },
+  fotosZip: { titulo: 'Upload lots of photos or a zip', pasos: ['In **Niños** → **Fotos** → **Subir fotos**, tap **Subir un zip** (upload a zip) or **Subir una carpeta** (upload a folder).', 'The app goes through the photos one by one and **saves to Drive by itself** the ones it recognizes for sure. You see the count at the top.', 'You can **Pausar** (pause) and **Seguir** (continue). If the page closes, pick the same zip again: it continues where it left off and doesn’t repeat photos.', 'At the end check only the ones it set aside (“No está segura” and “No reconoció a nadie”) and tap **Guardar en Drive**.'] },
   fotosVer: { titulo: "See or fix a child's photos", pasos: ['In **Niños** → **Fotos** → **Álbum**, pick the child in **Ver fotos de** (See photos of).', 'Tap a photo to see it big.', 'There you can **Cambiar quién sale** (change who is in it), **Abrir en Drive** (open in Drive) or **Borrar** (delete).'] },
   clave: { titulo: 'The password', pasos: ['Niños, Horario and Inicio ask for the Hacienda password.', 'The device remembers it for 30 days.', 'If you don’t know it or it doesn’t work, ask Sam. After several wrong tries it locks for 15 minutes.'] },
   celular: { titulo: 'Get the app on your phone', pasos: ['Open the app’s page on your phone.', 'Android (Chrome): tap ⋮ and then **Install app**.', 'iPhone (Safari): tap Share and then **Add to Home Screen**.', 'It gets its own icon like any app.'] },

@@ -1,92 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Ventana from '../Ventana.jsx';
-import { CASAS } from '../../lib/personal.js';
-import { fold, MESES } from '../../lib/text.js';
+import { MAX_LOTE, fechaBonita, ordenarPorCasa, ElegirNino, FotoRevisar } from './AlbumPartes.jsx';
 import { cargarCaras, detectar, referenciasDe, sinCaraEnDirectorio } from '../../lib/caras.js';
 import { emparejar, ninosDeFoto, carasParaAprender } from '../../lib/emparejar.js';
 import { prepararFoto } from '../../lib/fotosAlbum.js';
-
-const MAX_LOTE = 60;
-const fechaBonita = (f) => {
-  const m = String(f || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${+m[3]} de ${MESES[+m[2] - 1]} de ${m[1]}` : '';
-};
-
-function ordenarPorCasa(ninos) {
-  const grupos = new Map();
-  for (const c of [...CASAS, '']) grupos.set(c, []);
-  for (const n of ninos) {
-    const c = CASAS.includes(n.casa) ? n.casa : '';
-    grupos.get(c).push(n);
-  }
-  for (const l of grupos.values()) l.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  return [...grupos].filter(([, l]) => l.length);
-}
-
-function ElegirNino({ ninos, titulo, actual, enFoto, onElegir, onIgnorar, onQuitar, onCerrar, multiple, inicial, onListo }) {
-  const [q, setQ] = useState('');
-  const [sel, setSel] = useState(() => new Set(inicial || []));
-  const lista = ninos.filter((n) => !q || fold(n.nombre).includes(fold(q)));
-  return (
-    <>
-      <h3>{titulo}</h3>
-      <input className="al-buscar" type="search" placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} autoFocus aria-label="Buscar niño" />
-      <div className="al-elegir">
-        {ordenarPorCasa(lista).map(([casa, l]) => (
-          <div key={casa || 'sin'} className="al-grupo">
-            <h4>{casa || 'Sin casa'}</h4>
-            <div className="al-opciones">
-              {l.map((n) =>
-                multiple ? (
-                  <label key={n.id} className={`al-op${sel.has(n.id) ? ' on' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={sel.has(n.id)}
-                      onChange={() =>
-                        setSel((s) => {
-                          const x = new Set(s);
-                          x.has(n.id) ? x.delete(n.id) : x.add(n.id);
-                          return x;
-                        })
-                      }
-                    />
-                    {n.nombre}
-                  </label>
-                ) : (
-                  <button key={n.id} type="button" className={`al-op${actual === n.id ? ' on' : ''}${enFoto && enFoto.has(n.id) && actual !== n.id ? ' ya' : ''}`} onClick={() => onElegir(n.id)}>
-                    {n.nombre}
-                    {enFoto && enFoto.has(n.id) && actual !== n.id && <span className="hint"> · ya está en la foto</span>}
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-        ))}
-        {!lista.length && <p className="hint">No hay ningún niño con ese nombre.</p>}
-      </div>
-      <div className="row-actions">
-        {multiple && (
-          <button type="button" className="mini solid" onClick={() => onListo([...sel])}>
-            Listo ({sel.size})
-          </button>
-        )}
-        {onIgnorar && (
-          <button type="button" className="mini" onClick={onIgnorar}>
-            No es un niño de la casa
-          </button>
-        )}
-        {onQuitar && (
-          <button type="button" className="mini" onClick={onQuitar}>
-            Quitar
-          </button>
-        )}
-        <button type="button" className="mini" onClick={onCerrar}>
-          Cancelar
-        </button>
-      </div>
-    </>
-  );
-}
+import { esZip } from '../../lib/zipLector.js';
+import Masivo from './AlbumMasivo.jsx';
 
 function Carpeta({ carpeta, api, onCambio }) {
   const [abierto, setAbierto] = useState(!carpeta);
@@ -148,63 +67,7 @@ function Carpeta({ carpeta, api, onCambio }) {
   );
 }
 
-function FotoRevisar({ f, porId, onCara, onAgregar, onQuitarExtra, onOmitir }) {
-  const ids = ninosDeFoto(f);
-  return (
-    <article className={`al-rev${f.omitir ? ' omitida' : ''}`}>
-      <div className="al-img">
-        <img src={f.prep.foto} alt={`Foto ${f.prep.nombre}`} />
-        {!f.omitir &&
-          f.caras.map((c, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`al-caja ${c.ignorar ? 'ign' : c.id ? c.nivel : 'nadie'}`}
-              style={{ left: `${c.caja.x * 100}%`, top: `${c.caja.y * 100}%`, width: `${c.caja.w * 100}%`, height: `${c.caja.h * 100}%` }}
-              onClick={() => onCara(i)}
-              aria-label={c.id ? `Cara de ${porId.get(c.id)?.nombre}. Cambiar` : '¿Quién es? Elegir'}
-            />
-          ))}
-      </div>
-      <div className="al-info">
-        <p className="hint">
-          {fechaBonita(f.prep.fecha)}
-          {!f.prep.fechaDeCamara && ' (fecha del archivo)'}
-        </p>
-        {!f.omitir && (
-          <div className="al-chips">
-            {f.caras.map((c, i) =>
-              c.ignorar ? null : (
-                <button key={i} type="button" className={`al-chip ${c.id ? c.nivel : 'nadie'}`} onClick={() => onCara(i)}>
-                  {c.id ? (c.nivel === 'quizas' ? `¿${porId.get(c.id)?.nombre}?` : porId.get(c.id)?.nombre) : '¿Quién es?'}
-                </button>
-              )
-            )}
-            {(f.extra || []).map((id) => (
-              <span key={id} className="al-chip seguro">
-                {porId.get(id)?.nombre}
-                <button type="button" aria-label={`Quitar a ${porId.get(id)?.nombre}`} onClick={() => onQuitarExtra(id)}>
-                  ×
-                </button>
-              </span>
-            ))}
-            <button type="button" className="al-chip mas" onClick={onAgregar}>
-              + Agregar niño
-            </button>
-          </div>
-        )}
-        <p className={`al-destino${!ids.length && !f.omitir ? ' sin' : ''}`}>
-          {f.omitir ? 'No se va a subir.' : ids.length ? `Va a la carpeta de ${ids.map((id) => porId.get(id)?.nombre).join(', ')}.` : 'No reconocí a ningún niño: va a “Sin ordenar”.'}
-        </p>
-        <label className="al-omitir">
-          <input type="checkbox" checked={!!f.omitir} onChange={(e) => onOmitir(e.target.checked)} /> No subir esta foto
-        </label>
-      </div>
-    </article>
-  );
-}
-
-function Subir({ ninos, fotosDir, asegurarFotos, api, carpeta, onGuardado }) {
+function Subir({ ninos, fotosDir, asegurarFotos, api, carpeta, onGuardado, onMasivo }) {
   const [lote, setLote] = useState([]);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -215,6 +78,8 @@ function Subir({ ninos, fotosDir, asegurarFotos, api, carpeta, onGuardado }) {
   const [sinRef, setSinRef] = useState(null);
   const refs = useRef(null);
   const input = useRef(null);
+  const inputZip = useRef(null);
+  const inputCarpeta = useRef(null);
   const porId = useMemo(() => new Map(ninos.map((n) => [n.id, n])), [ninos]);
 
   const cambiar = (key, fn) => setLote((l) => l.map((f) => (f.key === key ? fn(f) : f)));
@@ -222,7 +87,8 @@ function Subir({ ninos, fotosDir, asegurarFotos, api, carpeta, onGuardado }) {
   const procesar = async (archivos) => {
     setError('');
     const imgs = archivos.filter((a) => /^image\//.test(a.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(a.name));
-    if (!imgs.length) return setError('Elige fotos (JPG o PNG).');
+    if (archivos.some(esZip) || imgs.length + lote.length > MAX_LOTE) return onMasivo(archivos.filter((a) => esZip(a) || imgs.includes(a)));
+    if (!imgs.length) return setError('Elige fotos (JPG o PNG) o un zip.');
     const tomar = imgs.slice(0, MAX_LOTE);
     const nuevos = tomar.map((a, i) => ({ key: `${Date.now()}-${i}-${a.name}`, archivo: a, estado: 'esperando', caras: [], extra: [] }));
     setLote((l) => [...l, ...nuevos]);
@@ -343,13 +209,48 @@ function Subir({ ninos, fotosDir, asegurarFotos, api, carpeta, onGuardado }) {
           <p>
             <b>Elige las fotos</b> o arrástralas aquí.
           </p>
-          <p className="hint">Puedes elegir muchas a la vez (hasta {MAX_LOTE}). La app busca las caras aquí mismo, en este aparato, y antes de guardar te deja revisar.</p>
-          <button type="button" className="dl" id="al-elegir" disabled={!carpeta} onClick={() => input.current.click()}>
-            Elegir fotos
-          </button>
+          <p className="hint">La app busca las caras aquí mismo, en este aparato. Hasta {MAX_LOTE} fotos las revisas todas antes de guardar. Con más fotos (o un zip), guarda solas las que reconoce seguro y te deja revisar solo las dudosas.</p>
+          <div className="al-botones">
+            <button type="button" className="dl" id="al-elegir" disabled={!carpeta} onClick={() => input.current.click()}>
+              Elegir fotos
+            </button>
+            <button type="button" className="dl ghost" id="al-elegir-zip" disabled={!carpeta} onClick={() => inputZip.current.click()}>
+              Subir un zip
+            </button>
+            <button type="button" className="dl ghost" id="al-elegir-carpeta" disabled={!carpeta} onClick={() => inputCarpeta.current.click()}>
+              Subir una carpeta
+            </button>
+          </div>
           {!carpeta && <p className="hint">Primero elige la carpeta de Drive.</p>}
         </div>
       )}
+      <input
+        ref={inputZip}
+        id="al-zip"
+        type="file"
+        accept=".zip,application/zip,application/x-zip-compressed"
+        multiple
+        hidden
+        onChange={(e) => {
+          const a = [...e.target.files];
+          e.target.value = '';
+          if (a.length) onMasivo(a);
+        }}
+      />
+      <input
+        ref={inputCarpeta}
+        id="al-carpeta"
+        type="file"
+        webkitdirectory=""
+        multiple
+        hidden
+        onChange={(e) => {
+          const a = [...e.target.files].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
+          e.target.value = '';
+          if (a.length) onMasivo(a);
+          else setError('No encontré fotos en esa carpeta.');
+        }}
+      />
       <input
         ref={input}
         id="al-archivos"
@@ -696,6 +597,7 @@ export default function Album({ ninos, fotos, asegurarFotos, api, inicial, onCer
   const [vista, setVista] = useState(inicial ? 'album' : '');
   const [aviso, setAviso] = useState('');
   const [clave, setClave] = useState(0);
+  const [masivo, setMasivo] = useState(null);
   const caja = useRef(null);
   useEffect(() => {
     try {
@@ -747,12 +649,33 @@ export default function Album({ ninos, fotos, asegurarFotos, api, inicial, onCer
             </p>
           )}
           <div hidden={vista !== 'subir'}>
+            {masivo && (
+              <Masivo
+                archivos={masivo}
+                ninos={ninos}
+                fotosDir={fotos}
+                asegurarFotos={asegurarFotos}
+                api={api}
+                onCancelar={() => setMasivo(null)}
+                onTerminar={(c) => {
+                  setMasivo(null);
+                  setAviso(`Listo: ${c.guardadas} ${c.guardadas === 1 ? 'foto guardada' : 'fotos guardadas'} en Drive${c.repetidas ? ` (${c.repetidas} ya estaban)` : ''}.`);
+                  api({ accion: 'albumEstado' })
+                    .then((x) => setEstado((e) => ({ ...e, cuentas: x.cuentas })))
+                    .catch(() => null);
+                  setClave((k) => k + 1);
+                  setVista('album');
+                }}
+              />
+            )}
+            <div hidden={!!masivo}>
             <Subir
               ninos={ninos}
               fotosDir={fotos}
               asegurarFotos={asegurarFotos}
               api={api}
               carpeta={estado.carpeta}
+              onMasivo={(a) => setMasivo(a)}
               onGuardado={(r) => {
                 setAviso(`Listo: ${r.nuevas} ${r.nuevas === 1 ? 'foto guardada' : 'fotos guardadas'} en Drive${r.repetidas ? ` (${r.repetidas} ya estaban y no se repitieron)` : ''}.`);
                 api({ accion: 'albumEstado' })
@@ -762,6 +685,7 @@ export default function Album({ ninos, fotos, asegurarFotos, api, inicial, onCer
                 if (r.nuevas || r.repetidas) setVista('album');
               }}
             />
+            </div>
           </div>
           {vista === 'album' && estado.carpeta && <Galeria key={clave} ninos={ninos} cuentas={estado.cuentas} api={api} inicial={inicial} onCuentas={(c) => c && setEstado((e) => ({ ...e, cuentas: c }))} />}
         </>

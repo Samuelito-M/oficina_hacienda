@@ -31,7 +31,7 @@ const ctx={ContentService:{createTextOutput:t=>({t,setMimeType(){return this}}),
   items.LIBRO={id:'LIBRO',tipo:'archivo',n:'Libro',padres:[],borrado:false,bytes:[],creado:new Date()};
   drive.crearCarpeta=(n,opc)=>Object.assign(crear('carpeta',n,['MIUNIDAD']),opc||{}).id;
   drive.ver=id=>items[id];drive.hijos=hijos;
-  return{getFileById:id=>envolver(items[id]&&items[id].tipo!=='carpeta'?items[id]:null),getFolderById:id=>envolver(items[id]&&items[id].tipo==='carpeta'?items[id]:null),
+  return{getFileById:id=>envolver(items[id]&&items[id].tipo!=='carpeta'?items[id]:null),getFolderById:id=>{if(drive.sinAutorizar)throw new Error('No tienes permiso para llamar a DriveApp.getFolderById. Permisos necesarios: https://www.googleapis.com/auth/drive');return envolver(items[id]&&items[id].tipo==='carpeta'?items[id]:null)},
    getFoldersByName:n=>iter(Object.values(items).filter(x=>x.tipo==='carpeta'&&x.padres.includes('MIUNIDAD')&&x.n===n).map(envolver)),
    createFolder:n=>{const x=crear('carpeta',n,['MIUNIDAD']);const w=envolver(x);drive.folders.push(w);return w}}})(),
  ScriptApp:{WeekDay:{SUNDAY:'SUNDAY'},getProjectTriggers:()=>drive.triggers.slice(),deleteTrigger:t=>{drive.triggers.splice(drive.triggers.indexOf(t),1)},
