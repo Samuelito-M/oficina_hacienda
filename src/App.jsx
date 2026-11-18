@@ -24,7 +24,7 @@ import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.15';
+const VERSION = '1.16';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
