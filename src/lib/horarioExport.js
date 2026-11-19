@@ -62,8 +62,11 @@ export async function generarExcelHorario(clave, horario, config, JSZip) {
               if (k === 'nota') {
                 t = (horario.notas && horario.notas[d]) || '';
               } else if (k === 'vac') {
-                const vs = horario.vac.filter((v) => d >= v.de && d <= v.a).map((v) => nombre.get(v.id) || v.id);
-                t = vs.length ? `VACACIÓN ${vs.join('-')}` : '';
+                const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
+                const nv = (x) => nombre.get(x.id) || x.id;
+                const dePar = vv.filter((x) => !x.t || x.t === 'vac').map(nv);
+                const otros = vv.filter((x) => x.t && x.t !== 'vac').map(nv);
+                t = [dePar.length ? `VACACIÓN ${dePar.join('-')}` : '', otros.length ? `AUSENTE ${otros.join('-')}` : ''].filter(Boolean).join(' · ');
               } else {
                 const ids = en(horario, d, k);
                 t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => nombre.get(id) || id).join('-')}`;
@@ -160,7 +163,9 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
       if (d == null) return;
       page.drawText(String(d), { x: x + 5, y: yTop - 13, size: 11.5, font: B, color: tinta });
       if (fer.has(d)) page.drawText('FERIADO', { x: x + 5 + B.widthOfTextAtSize(String(d), 11.5) + 5, y: yTop - 12, size: 6.5, font: B, color: PDFLib.rgb(0.7, 0.42, 0) });
-      const vs = horario.vac.filter((v) => d >= v.de && d <= v.a).map((v) => nombre.get(v.id) || v.id);
+      const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
+      const vs = vv.filter((x) => !x.t || x.t === 'vac').map((x) => nombre.get(x.id) || x.id);
+      const au = vv.filter((x) => x.t && x.t !== 'vac').map((x) => nombre.get(x.id) || x.id);
       const nota = horario.notas && horario.notas[d];
       const armarDia = (size) => {
         const bloques = [];
@@ -173,6 +178,7 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
         }
         const extra = [];
         if (vs.length) extra.push({ t: partir(`Vacación: ${vs.join(', ')}`, R, size - 0.6, colW - 10), color: gris });
+        if (au.length) extra.push({ t: partir(`Ausente: ${au.join(', ')}`, R, size - 0.6, colW - 10), color: gris });
         if (nota) extra.push({ t: partir(`Nota: ${nota}`, R, size - 0.4, colW - 10), color: PDFLib.rgb(0.6, 0.38, 0) });
         const filas = bloques.reduce((a, b2) => a + b2.lineas.length, 0) + extra.reduce((a, e) => a + e.t.length, 0);
         return { bloques, extra, filas, extras: bloques.length };

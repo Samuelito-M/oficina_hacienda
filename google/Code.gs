@@ -1,4 +1,4 @@
-const VERSION = 7;
+const VERSION = 8;
 const HOJA = 'Ninos';
 const HOJA_FOTOS = 'Fotos';
 const HOJA_CASAS = 'Casas';
@@ -526,6 +526,16 @@ function limpiarPersona(p) {
   if (!id) return null;
   const alias = Array.isArray(p.alias) ? p.alias.slice(0, 20).map(function (a) { return texto(a, 30); }).filter(String) : [];
   const o = { id: id, nombre: texto(p.nombre, 60) || id, alias: alias, fijo: !!p.fijo, casa: texto(p.casa, 30), completo: texto(p.completo, 120), cedula: String(p.cedula || '').replace(/[^0-9]/g, '').slice(0, 13), hasta: /^20\d\d-\d\d$/.test(String(p.hasta || '')) ? String(p.hasta) : '' };
+  if (Array.isArray(p.aus)) {
+    o.aus = p.aus.slice(0, 120).map(function (x) {
+      if (!x || !/^20\d\d-\d\d-\d\d$/.test(String(x.de || '')) || !/^20\d\d-\d\d-\d\d$/.test(String(x.a || '')) || String(x.a) < String(x.de)) return null;
+      const t = ['vac', 'med', 'fam', 'lic', 'otro'].indexOf(x.t) >= 0 ? x.t : 'otro';
+      const r = { t: t, de: String(x.de), a: String(x.a) };
+      const n = texto(x.n, 60);
+      if (n) r.n = n;
+      return r;
+    }).filter(function (x) { return x; });
+  }
   if (p.hor && typeof p.hor === 'object') o.hor = { n: texto(p.hor.n, 60), rol: texto(p.hor.rol, 10), casa: texto(p.hor.casa, 30), hasta: /^20\d\d-\d\d$/.test(String(p.hor.hasta || '')) ? String(p.hor.hasta) : '' };
   return o;
 }

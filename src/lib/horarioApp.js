@@ -115,7 +115,7 @@ export function normalizarHorario(h) {
       if (Object.keys(dia).length) out.dias[+d] = dia;
     }
   }
-  if (Array.isArray(h.vac)) out.vac = h.vac.filter((v) => v && v.id && +v.de >= 1 && +v.a >= +v.de).map((v) => ({ id: String(v.id), de: +v.de, a: +v.a }));
+  if (Array.isArray(h.vac)) out.vac = h.vac.filter((v) => v && v.id && +v.de >= 1 && +v.a >= +v.de).map((v) => ({ id: String(v.id), de: +v.de, a: +v.a, ...(typeof v.t === 'string' && v.t ? { t: v.t.slice(0, 5) } : {}) }));
   if (Array.isArray(h.fer)) out.fer = Array.from(new Set(h.fer.map(Number).filter((d) => d >= 1 && d <= 31))).sort((a, b) => a - b);
   if (h.notas && typeof h.notas === 'object') {
     for (const d of Object.keys(h.notas).map(Number).filter((x) => x >= 1 && x <= 31).sort((a, b) => a - b)) {
@@ -191,7 +191,7 @@ export function contexto(clave, horario, config) {
     const p = porId.get(id);
     if (!p) return 'no está en el personal';
     if (!activo(p, clave)) return 'ya no trabaja';
-    if (enVac(id, d)) return 'está de vacaciones';
+    if (enVac(id, d)) return 'no está (ausencia)';
     if (k === ON_CALL) return '';
     const dd = donde(id, d);
     if (!casasDe(p).includes(k)) return casasDe(p).length ? `no va a ${k}` : 'no tiene casas marcadas';
@@ -227,7 +227,7 @@ export function problemas(ctx, semana = null) {
         const p = ctx.porId.get(id);
         if (vistos[id]) out.push({ tipo: 'doble', d, k: c, t: `${ctx.nombre(id)} está en ${vistos[id]} y en ${c} el ${cuando}` });
         vistos[id] = c;
-        if (ctx.enVac(id, d)) out.push({ tipo: 'vac', d, k: c, t: `${ctx.nombre(id)} está de vacaciones el ${cuando}` });
+        if (ctx.enVac(id, d)) out.push({ tipo: 'vac', d, k: c, t: `${ctx.nombre(id)} no está ese día (ausencia) el ${cuando}` });
         if (!ctx.revisa) continue;
         if (!activo(p, ctx.clave)) out.push({ tipo: 'fuera', d, k: c, t: `${ctx.nombre(id)} ya no trabaja y sale el ${cuando}` });
         else if (!casasDe(p).includes(c)) out.push({ tipo: 'regla', d, k: c, t: `${p.n} no va a ${c} y está ahí el ${cuando}` });

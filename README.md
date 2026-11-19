@@ -50,6 +50,10 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 
 **Lista de personal y cédulas en Google** (desde la versión 6 del código de Google): en cualquier computadora o celular que entre con la clave, la lista de Personal de Acuerdos se guarda en la hoja (pestaña "Horarios", fila "personal") y se ve igual en todos lados. Sin clave sigue guardándose solo en ese navegador.
 
+**Control de personal** (desde la versión 8 del código de Google): la pestaña **Control de personal** pide la misma clave de Niños. Ahí se ve, por año o por mes, cuántos días tomó de vacaciones cada persona y cuántos faltó, con el motivo (enfermedad o emergencia médica, emergencia familiar, licencia de maternidad o paternidad, otro). Los días se cuentan completos, con fines de semana. Las ausencias se anotan en Horario (**Ausencias y feriados**) o directo en Control con **Anotar una ausencia**; una licencia larga puede cruzar varios meses y la app deja a esa persona fuera del horario de todos. Se guardan junto con la lista de Personal en la hoja de Google (fila "personal"). El horario impreso solo dice "Vacación" o "Ausente", nunca el motivo. Se puede descargar para Excel o imprimir.
+
+**Sam Jr. y las ausencias:** con la clave puesta, Sam Jr. también contesta con los datos del control de personal, por ejemplo “¿cuántos días de vacaciones tomó Mayra este año?”, “¿quién está de licencia?” o “¿quién ha faltado más?”. Estas preguntas piden la clave porque son datos delicados.
+
 **Fotos de los niños** (desde la versión 7 del código de Google): en Niños → Fotos, la primera vez pega el enlace de la carpeta de Drive (puede ser una carpeta compartida o una unidad compartida; la cuenta dueña del Apps Script tiene que poder editarla). La app crea adentro:
 - `Todas las fotos/AAAA-MM/`: cada foto una sola vez.
 - `Casa 1/…/Nombre del niño/`: accesos directos a sus fotos (una foto de grupo aparece en la carpeta de cada niño sin ocupar más espacio).

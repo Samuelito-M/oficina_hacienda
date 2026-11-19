@@ -6,6 +6,7 @@ import fontkit from '@pdf-lib/fontkit';
 import pdfjs from '../lib/pdfjs.js';
 import Entrar from '../components/Entrar.jsx';
 import { CASAS } from '../lib/personal.js';
+import { TIPOS, MAX_NOTA_AUS, esFecha, diasEntre, agregarAus, quitarAus, ausenciasDeMes, migrarVac, nombreTipo, cortoTipo, rangoTexto } from '../lib/ausencias.js';
 import { MESES } from '../lib/text.js';
 import { leerConexion, borrarSesion, llamar } from '../lib/ninos.js';
 import { leerItemsPdf, analizarHorario, HorarioError } from '../lib/horario.js';
@@ -370,37 +371,56 @@ function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
   );
 }
 
-function Vacaciones({ ctx, onCambio, onCerrar }) {
+function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   const h = ctx.horario;
   const gente = activos(ctx.config, ctx.clave);
   const [id, setId] = useState(gente[0]?.id || '');
+  const [tipo, setTipo] = useState('vac');
   const [de, setDe] = useState('');
   const [a, setA] = useState('');
+  const [nota, setNota] = useState('');
   const [fer, setFer] = useState('');
   const [error, setError] = useState('');
   const mes = MESES[ctx.mes];
+  const mesIni = `${ctx.anio}-${String(ctx.mes + 1).padStart(2, '0')}`;
+  const delMes = [];
+  for (const p of personal) for (const x of p.aus || []) if (x.de.slice(0, 7) <= mesIni && x.a.slice(0, 7) >= mesIni) delMes.push({ p, x });
+  delMes.sort((q, r) => (q.x.de < r.x.de ? -1 : 1));
   const agregar = () => {
-    const d1 = Math.floor(+de);
-    const d2 = Math.floor(+a) || d1;
-    if (!(d1 >= 1 && d2 >= d1 && d2 <= ctx.n) || !id) return setError(`Escribe días del 1 al ${ctx.n}.`);
-    let nuevo = { ...h, vac: [...h.vac, { id, de: d1, a: d2 }] };
-    for (let d = d1; d <= d2; d++) for (const k of PUESTOS) if (en(nuevo, d, k).includes(id)) nuevo = poner(nuevo, d, k, en(nuevo, d, k).filter((x) => x !== id));
-    onCambio(nuevo);
+    if (!id) return;
+    const d1 = de;
+    const d2 = a || de;
+    if (!esFecha(d1) || !esFecha(d2)) return setError('Escoge la fecha de inicio. Si es un solo día, deja “hasta” vacío.');
+    if (d2 < d1) return setError('La fecha final no puede ser antes de la inicial.');
+    if (diasEntre(d1, d2) > 800) return setError('Ese rango es demasiado largo.');
+    setPersonal(agregarAus(personal, id, { t: tipo, de: d1, a: d2, n: nota }));
+    const ini = `${mesIni}-01`;
+    const fin = `${mesIni}-${String(ctx.n).padStart(2, '0')}`;
+    const x1 = d1 < ini ? 1 : +d1.slice(8, 10);
+    const x2 = d2 > fin ? ctx.n : +d2.slice(8, 10);
+    if (h && d2 >= ini && d1 <= fin) {
+      let nuevo = h;
+      for (let d = x1; d <= x2; d++) for (const k of PUESTOS) if (en(nuevo, d, k).includes(id)) nuevo = poner(nuevo, d, k, en(nuevo, d, k).filter((x) => x !== id));
+      if (nuevo !== h) onCambio(nuevo);
+    }
     setDe('');
     setA('');
+    setNota('');
     setError('');
   };
+  const cuando = (x) => (x.de === x.a ? `el ${rangoTexto(x.de, x.a)}` : `del ${rangoTexto(x.de, x.a)}`);
   return (
     <>
-      <h3>Vacaciones y feriados</h3>
-      <p className="hint">De {mes}. A quien está de vacaciones la app lo saca del horario esos días.</p>
+      <h3>Ausencias y feriados</h3>
+      <p className="hint">De {mes}. A quien no está la app lo saca del horario esos días. Cada ausencia queda guardada con su motivo para el reporte del personal, y en el horario impreso solo dice “Vacación” o “Ausente”.</p>
       <div className="h-lista">
-        {h.vac.map((v, i) => (
-          <div key={i}>
+        {delMes.map(({ p, x }, i) => (
+          <div key={`${p.id}${x.de}${x.a}${i}`}>
             <span>
-              <b>{ctx.nombre(v.id)}</b> · {v.de === v.a ? `el ${v.de}` : `del ${v.de} al ${v.a}`} de {mes}
+              <b>{p.nombre}</b> · {nombreTipo(x.t)} · {cuando(x)}
+              {x.n ? ` · ${x.n}` : ''}
             </span>
-            <button type="button" className="h-x" onClick={() => onCambio({ ...h, vac: h.vac.filter((_, j) => j !== i) })}>
+            <button type="button" className="h-x" onClick={() => setPersonal(quitarAus(personal, p.id, x))}>
               Quitar
             </button>
           </div>
@@ -415,10 +435,10 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
             </button>
           </div>
         ))}
-        {!h.vac.length && !h.fer.length && <p className="hint">Nada este mes.</p>}
+        {!delMes.length && !h.fer.length && <p className="hint">Nada este mes.</p>}
       </div>
       <div className="h-caja">
-        <b>Agregar vacaciones o permiso</b>
+        <b>Agregar una ausencia</b>
         <div className="h-fila">
           <select id="h-vac-quien" value={id} onChange={(e) => setId(e.target.value)} aria-label="Persona">
             {gente.map((p) => (
@@ -427,14 +447,27 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
               </option>
             ))}
           </select>
-          <span>del</span>
-          <input id="h-vac-de" className="num" type="number" min="1" max={ctx.n} value={de} onChange={(e) => setDe(e.target.value)} aria-label="Desde el día" />
-          <span>al</span>
-          <input id="h-vac-a" className="num" type="number" min="1" max={ctx.n} value={a} onChange={(e) => setA(e.target.value)} aria-label="Hasta el día" />
+          <select id="h-aus-tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Motivo">
+            {TIPOS.map((t) => (
+              <option key={t.k} value={t.k}>
+                {t.n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="h-fila">
+          <span>Desde</span>
+          <input id="h-vac-de" type="date" value={de} onChange={(e) => setDe(e.target.value)} aria-label="Desde la fecha" />
+          <span>hasta</span>
+          <input id="h-vac-a" type="date" value={a} onChange={(e) => setA(e.target.value)} aria-label="Hasta la fecha" />
+        </div>
+        <div className="h-fila">
+          <input id="h-aus-nota" type="text" maxLength={MAX_NOTA_AUS} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Nota (opcional, sin diagnósticos)" aria-label="Nota" style={{ flex: 1, minWidth: 160 }} />
           <button type="button" className="h-btn prim" id="h-vac-ok" onClick={agregar}>
             Agregar
           </button>
         </div>
+        <p className="hint">Para una licencia larga (maternidad, por ejemplo) pon la fecha de inicio y la del último día: aunque cruce varios meses, la app la deja fuera del horario de todos esos meses.</p>
         {error && <span className="h-err">{error}</span>}
       </div>
       <div className="h-caja">
@@ -465,7 +498,7 @@ function Vacaciones({ ctx, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, avisar, onConfig, mesInicial }) {
+export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial }) {
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
@@ -543,6 +576,26 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
     window.addEventListener('beforeunload', f);
     return () => window.removeEventListener('beforeunload', f);
   }, [sucio]);
+
+  useEffect(() => {
+    if (estado !== 'listo') return;
+    const actual = (horario || base).vac;
+    const legado = actual.filter((v) => !v.t);
+    if (legado.length) {
+      const r = migrarVac(personal, clave, legado);
+      if (r !== personal) {
+        setPersonal(r);
+        return;
+      }
+    }
+    const aus = ausenciasDeMes(personal, clave);
+    if (J(aus) === J(actual)) return;
+    if (horario) {
+      const nuevo = { ...horario, vac: aus };
+      setHorario(nuevo);
+      if (J(horario) === guardado) setGuardado(J(nuevo));
+    } else setBase((b) => ({ ...b, vac: aus }));
+  }, [estado, clave, personal, horario, base]);
 
   const ctx = useMemo(() => contexto(clave, horario || { ...horarioVacio(), ...base }, config), [clave, horario, config, base]);
   const todos = useMemo(() => (horario ? problemas(ctx) : []), [ctx, horario]);
@@ -886,12 +939,12 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
           <div className="h-paso">
             <span className="h-paso-n">1</span>
             <div>
-              <b>¿Hay vacaciones, permisos o feriados en {soloMes(clave)}?</b>
+              <b>¿Hay vacaciones, ausencias o feriados en {soloMes(clave)}?</b>
               {base.vac.length || base.fer.length ? (
                 <ul className="h-paso-lista" id="h-portada-vac">
                   {base.vac.map((v, i) => (
                     <li key={i}>
-                      {ctx.nombre(v.id)}: {v.de === v.a ? `el ${v.de}` : `del ${v.de} al ${v.a}`}
+                      {ctx.nombre(v.id)}: {v.t && v.t !== 'vac' ? `${cortoTipo(v.t)} · ` : ''}{v.de === v.a ? `el ${v.de}` : `del ${v.de} al ${v.a}`}
                     </li>
                   ))}
                   {base.fer.map((f) => (
@@ -902,7 +955,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
                 <p className="hint">Ponlos primero, así la app no pone a nadie esos días.</p>
               )}
               <button type="button" className="h-btn" id="h-vac-portada" onClick={() => setVentana({ tipo: 'vac' })}>
-                {base.vac.length || base.fer.length ? 'Cambiar vacaciones y feriados' : 'Poner vacaciones y feriados'}
+                {base.vac.length || base.fer.length ? 'Cambiar ausencias y feriados' : 'Poner ausencias y feriados'}
               </button>
             </div>
           </div>
@@ -910,7 +963,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
             <span className="h-paso-n">2</span>
             <div>
               <b>Arma el horario</b>
-              <p className="hint">La app arma el mes completo con las reglas: padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y el on call{base.vac.length || base.fer.length ? ', sin poner a nadie en sus vacaciones' : ''}. Después solo cambias lo que haga falta.</p>
+              <p className="hint">La app arma el mes completo con las reglas: padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y el on call{base.vac.length || base.fer.length ? ', sin poner a nadie cuando está ausente' : ''}. Después solo cambias lo que haga falta.</p>
             </div>
           </div>
           <button type="button" className="h-btn prim grande" id="h-armar" onClick={() => llenar(true)}>
@@ -1043,7 +1096,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
         <span className="esp" />
         {estado === 'listo' && horario && (
           <button type="button" className="h-btn" id="h-vacaciones" onClick={() => setVentana({ tipo: 'vac' })}>
-            Vacaciones y feriados
+            Ausencias y feriados
           </button>
         )}
         {estado === 'listo' && (
@@ -1110,8 +1163,8 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
         />
       </Ventana>
 
-      <Ventana abierta={ventana?.tipo === 'vac'} onCerrar={() => setVentana(null)} etiqueta="Vacaciones y feriados">
-        <Vacaciones ctx={ctx} onCambio={horario ? cambiar : (h) => setBase({ vac: h.vac, fer: h.fer })} onCerrar={() => setVentana(null)} />
+      <Ventana abierta={ventana?.tipo === 'vac'} onCerrar={() => setVentana(null)} etiqueta="Ausencias y feriados">
+        <Vacaciones ctx={ctx} personal={personal} setPersonal={setPersonal} onCambio={horario ? cambiar : (h) => setBase((b) => ({ ...b, fer: h.fer }))} onCerrar={() => setVentana(null)} />
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'bajar'} onCerrar={() => setVentana(null)} etiqueta="Descargar">
@@ -1207,7 +1260,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
       <Ventana abierta={ventana?.tipo === 'borrar'} onCerrar={() => setVentana(null)} etiqueta="Borrar horario">
         <h3>¿Borrar el horario de {soloMes(clave)}?</h3>
         <p className="hint">
-          Se borran las casas, el on call, las notas y las observaciones de {soloMes(clave)}{guardado ? ', también en la hoja de Google' : ''}. Vuelve a salir la pantalla para armarlo con las reglas, copiar el mes anterior o empezar de cero. Las vacaciones y feriados se quedan.
+          Se borran las casas, el on call, las notas y las observaciones de {soloMes(clave)}{guardado ? ', también en la hoja de Google' : ''}. Vuelve a salir la pantalla para armarlo con las reglas, copiar el mes anterior o empezar de cero. Las ausencias y feriados se quedan.
         </p>
         <p className="hint">Los demás meses no se tocan.</p>
         <div className="h-acc">
@@ -1222,7 +1275,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
 
       <Ventana abierta={ventana?.tipo === 'rearmar'} onCerrar={() => setVentana(null)} etiqueta="Volver a armar">
         <h3>¿Volver a armar {soloMes(clave)} con las reglas?</h3>
-        <p className="hint">Se borra lo que hay en {soloMes(clave)} y la app lo arma de nuevo. Las vacaciones y feriados se quedan. No se guarda hasta que toques el botón de guardar.</p>
+        <p className="hint">Se borra lo que hay en {soloMes(clave)} y la app lo arma de nuevo. Las ausencias y feriados se quedan. No se guarda hasta que toques el botón de guardar.</p>
         <div className="h-acc">
           <button type="button" className="h-btn" onClick={() => setVentana(null)}>
             Cancelar
@@ -1243,7 +1296,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
 
       <Ventana abierta={ventana?.tipo === 'recopiar'} onCerrar={() => setVentana(null)} etiqueta="Volver a copiar">
         <h3>¿Volver a copiar {soloMes(moverMes(clave, -1))}?</h3>
-        <p className="hint">Se reemplaza todo lo que hay en {soloMes(clave)} por la copia de {soloMes(moverMes(clave, -1))}. Las vacaciones y feriados se quedan. No se guarda hasta que toques el botón de guardar.</p>
+        <p className="hint">Se reemplaza todo lo que hay en {soloMes(clave)} por la copia de {soloMes(moverMes(clave, -1))}. Las ausencias y feriados se quedan. No se guarda hasta que toques el botón de guardar.</p>
         <div className="h-acc">
           <button type="button" className="h-btn" onClick={() => setVentana(null)}>
             Cancelar

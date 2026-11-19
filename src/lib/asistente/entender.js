@@ -114,9 +114,18 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   const hayTrabajo = tiene(ps, 'trabaja', 'trabajan', 'trabajo', 'turno', 'turnos', 'toca', 'tocan', 'cubre', 'cubren') || /\b(quien|quienes)\s+(esta|estan|va|van|hay|queda|quedan|cuida|cuidan)\b/.test(s) || /\bque dias\b|\bcuando (le )?toca\b|\bhorario de\b/.test(s);
   const hayEstadoHorario = /\bhorario\b/.test(s) && /\b(listo|hecho|falta|terminado|armado|guardado|ya esta|existe)\b/.test(s) && !como;
   const hayNinosCasa = /\bninos\b/.test(s) && (casa || /\bcuantos\b/.test(s)) && !hayTalla && !hayCumple;
+  const hayAus = tiene(ps, 'vacaciones', 'vacacion', 'faltado', 'falto', 'faltaron', 'faltas', 'ausente', 'ausentes', 'ausencia', 'ausencias', 'licencia', 'licencias', 'maternidad', 'paternidad', 'enfermo', 'enferma', 'tomo', 'tomado', 'tomaron', 'permiso', 'permisos');
+  const hayAusAhora = tiene(ps, 'vacaciones', 'vacacion', 'ausente', 'ausentes', 'licencia', 'licencias', 'permiso', 'enfermo', 'enferma', 'maternidad', 'falto', 'faltado');
+  const dondeVer = tiene(ps, 'donde', 'pestana', 'reporte', 'reportes');
+  const anioAus = (() => {
+    const m = s.match(/\b(20\d\d)\b/);
+    if (m) return +m[1];
+    if (/\bano (pasado|anterior)\b|\bpasado ano\b/.test(s)) return hoy.getFullYear() - 1;
+    return 0;
+  })();
   const hayCasaDe = /\b(en )?que casa\b|\bde que casa\b|\bdonde (esta|vive)\b/.test(s);
 
-  const conIntencion = hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
+  const conIntencion = hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
   const seguir = seguimiento(contexto, s, sinVacias, conIntencion, ent);
   if (seguir) return seguir;
 
@@ -127,6 +136,9 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
     if (hayCasaDe && nin.length && !trab.length) return r('casa_nino');
     if (hayOncall && !como) return r('oncall');
     if (hayCambio && !como && !tiene(ps, 'hojas', 'hoja', 'imprimir', 'imprimo')) return r('cambio_casa');
+    if (trab.length && hayAus && !como) return r('aus_persona', { anioAus });
+    if (!trab.length && hayAus && !como && !dondeVer && (tiene(ps, 'dias') || /\b(mas|total|resumen)\b/.test(s)) && /\b(cuantos|cuantas|quien|total|resumen)\b/.test(s)) return r('aus_resumen', { anioAus });
+    if (!trab.length && hayAusAhora && !como && /\b(quien|quienes)\b/.test(s) && !dondeVer) return r('aus_ahora');
     if (hayDescanso && !como && !trab.length) return r('descansan');
     if (hayNinosCasa) return r('ninos_casa');
     if (hayEstadoHorario) return r('estado_horario');

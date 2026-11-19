@@ -1,4 +1,5 @@
 import { fold, squash, MESES } from './text.js';
+import { limpiarAus } from './ausencias.js';
 
 export const CASAS = ['Casa 1', 'Casa 2', 'Casa 3', 'Casa 4', 'Casa Esther'];
 
@@ -33,7 +34,7 @@ export function slug(s) {
 }
 
 export function normalizarPersonal(guardado) {
-  const porId = new Map(PERSONAL_BASE.map((p) => [p.id, { ...p, alias: [...p.alias], completo: '', cedula: '' }]));
+  const porId = new Map(PERSONAL_BASE.map((p) => [p.id, { ...p, alias: [...p.alias], completo: '', cedula: '', aus: [] }]));
   if (Array.isArray(guardado)) {
     for (const g of guardado) {
       if (!g || typeof g.id !== 'string' || !g.id) continue;
@@ -47,6 +48,7 @@ export function normalizarPersonal(guardado) {
         completo: typeof g.completo === 'string' ? g.completo : '',
         cedula: typeof g.cedula === 'string' ? g.cedula : '',
         hasta: esMes(g.hasta) ? g.hasta : '',
+        aus: limpiarAus(g.aus),
         hor: g.hor && typeof g.hor === 'object' ? g.hor : undefined
       });
     }
@@ -69,7 +71,7 @@ export function guardarPersonal(lista) {
   try {
     localStorage.setItem(
       KEY,
-      JSON.stringify(lista.map(({ id, nombre, alias, fijo, casa, completo, cedula, hasta, hor }) => ({ id, nombre, alias, fijo, casa, completo, cedula, hasta, hor })))
+      JSON.stringify(lista.map(({ id, nombre, alias, fijo, casa, completo, cedula, hasta, aus, hor }) => ({ id, nombre, alias, fijo, casa, completo, cedula, hasta, aus, hor })))
     );
     return true;
   } catch {

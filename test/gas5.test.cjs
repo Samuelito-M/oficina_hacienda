@@ -7,7 +7,7 @@ const ana = C({ accion: 'guardar', nino: { nombre: 'Ana', casa: 'Casa 3' } }).ni
 const luis = C({ accion: 'guardar', nino: { nombre: 'Luis', casa: 'Casa 1' } }).nino;
 const b64 = (t) => Buffer.from(t).toString('base64');
 let r = C({ accion: 'albumEstado' });
-ok(r.ok && r.version === 7 && r.carpeta === null && r.cuentas._total === 0, 'al principio no hay carpeta elegida');
+ok(r.ok && r.version === 8 && r.carpeta === null && r.cuentas._total === 0, 'al principio no hay carpeta elegida');
 r = C({ accion: 'albumSubir', foto: b64('x'), mini: b64('m'), ninos: [ana.id] });
 ok(!r.ok && r.error === 'sinCarpeta', 'sin carpeta no deja subir y lo explica');
 ok(C({ accion: 'albumCarpeta', enlace: 'https://www.google.com' }).error === 'enlace', 'enlace que no es de carpeta');

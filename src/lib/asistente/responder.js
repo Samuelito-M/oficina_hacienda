@@ -5,6 +5,7 @@ import { tallaDe } from '../tallas.js';
 import { GUIA, EJEMPLOS, EJEMPLOS_EN } from './guia.js';
 import { DIAS_BONITO, DIAS_EN, MESES_P, MESES_EN, fechaBonita, claveDe, finDeSemana, semana, mas, diasDelMes } from './fechas.js';
 import { CASAS } from './entender.js';
+import { respuestaAusencias } from './ausenciasChat.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
 const mayus = (s) => s[0].toUpperCase() + s.slice(1);
@@ -110,7 +111,7 @@ function textos(lang) {
   };
 }
 
-export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario']);
+export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen']);
 
 async function horariosDe(fechas, datos) {
   const meses = Array.from(new Set(fechas.map(claveDe)));
@@ -408,7 +409,7 @@ async function estadoHorario(e, datos, T) {
   return { partes: [{ p: T.hecho(mes, rev) }], botones: [ir('horario', T.abrirlo, { mes })] };
 }
 
-const TAB = { horario: ['Horario', 'Horario (Schedule)'], acuerdos: ['Acuerdos', 'Acuerdos (Agreements)'], casas: ['Cambio de casa', 'Cambio de casa (House change)'], menu: ['Menú', 'Menú (Menu)'], ninos: ['Niños', 'Niños (Kids)'], inicio: ['Inicio', 'Inicio (Home)'] };
+const TAB = { horario: ['Horario', 'Horario (Schedule)'], acuerdos: ['Acuerdos', 'Acuerdos (Agreements)'], casas: ['Cambio de casa', 'Cambio de casa (House change)'], menu: ['Menú', 'Menú (Menu)'], ninos: ['Niños', 'Niños (Kids)'], inicio: ['Inicio', 'Inicio (Home)'], control: ['Control de personal', 'Control de personal (Staff control)'] };
 
 export function respuestaGuia(a, otros = [], lang = 'es') {
   const T = textos(lang);
@@ -449,6 +450,10 @@ export async function responder(e, datos) {
       return ninosCasa(e, datos, T);
     case 'estado_horario':
       return estadoHorario(e, datos, T);
+    case 'aus_persona':
+    case 'aus_ahora':
+    case 'aus_resumen':
+      return respuestaAusencias(e, datos, T);
     case 'cumple_nino':
     case 'edad_nino':
     case 'talla_nino':

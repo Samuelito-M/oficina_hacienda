@@ -7,6 +7,7 @@ import Casas from './tabs/Casas.jsx';
 import Menu from './tabs/Menu.jsx';
 import Ninos from './tabs/Ninos.jsx';
 import Horario from './tabs/Horario.jsx';
+import Control from './tabs/Control.jsx';
 import Inicio from './tabs/Inicio.jsx';
 import Asistente from './components/Asistente.jsx';
 import { leerItemsPdf, analizarHorario, HorarioError } from './lib/horario.js';
@@ -22,9 +23,9 @@ import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib
 import { leerConexion, llamar } from './lib/ninos.js';
 import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar } from './lib/personalNube.js';
 
-const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario'];
+const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.19';
+const VERSION = '1.21';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -88,7 +89,7 @@ export default function App() {
     setNubeState(n);
   };
 
-  const subirNube = useCallback(async (lista) => {
+  const subirNube = useCallback(async (lista, version) => {
     clearTimeout(espera.current);
     espera.current = null;
     const c = leerConexion();
@@ -96,7 +97,7 @@ export default function App() {
     try {
       await llamar(c.url, { accion: 'guardarPersonal', token: c.token, lista: paraGuardar(lista) });
       if (personalRef.current === lista) marcarPendiente(false);
-      setNube({ estado: 'ok' });
+      setNube({ estado: 'ok', version: version || (nubeRef.current && nubeRef.current.version) || 0 });
     } catch (err) {
       setNube(err.codigo === 'sesion' ? { estado: 'local' } : { estado: 'error', mensaje: err.message || 'No se pudo guardar en Google.' });
     }
@@ -115,10 +116,11 @@ export default function App() {
         setPersonalState(final);
         setGuardadoOk(guardarPersonal(final));
       }
-      if (!servidor || !mismaLista(final, servidor)) await subirNube(final);
+      const version = +r.version || 0;
+      if (!servidor || !mismaLista(final, servidor)) await subirNube(final, version);
       else {
         marcarPendiente(false);
-        setNube({ estado: 'ok' });
+        setNube({ estado: 'ok', version });
       }
     } catch (err) {
       if (err.codigo === 'sesion') setNube({ estado: 'local' });
@@ -345,7 +347,7 @@ export default function App() {
             </div>
             <div>
               <h1>Hacienda of Hope</h1>
-              <p>Oficina · acuerdos, cambios de casa, menú, niños y horario</p>
+              <p>Oficina · acuerdos, cambios de casa, menú, niños, horario y personal</p>
             </div>
           </div>
           <nav aria-label="Herramientas">
@@ -355,7 +357,8 @@ export default function App() {
               ['casas', 'Cambio de casa'],
               ['menu', 'Menú'],
               ['ninos', 'Niños'],
-              ['horario', 'Horario']
+              ['horario', 'Horario'],
+              ['control', 'Control de personal']
             ].map(([k, l]) => (
               <a key={k} href={`#${k}`} id={`tab-${k}`} aria-current={tab === k ? 'page' : undefined}>
                 {l}
@@ -396,7 +399,8 @@ export default function App() {
         {tab === 'casas' && <Casas horario={horario} analisis={analisis} errorAnalisis={errorAnalisis} personal={personal} marcas={marcas} setMarcas={setMarcas} onHorario={onHorario} onHorarioApp={onHorarioApp} onPdf={onPdf} generando={generando === 'pdf'} />}
         {tab === 'inicio' && <Inicio personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} />}
         {tab === 'ninos' && <Ninos />}
-        {tab === 'horario' && <Horario personal={personal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} />}
+        {tab === 'control' && <Control personal={personal} setPersonal={setPersonal} nube={nube} avisar={setToast} />}
+        {tab === 'horario' && <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} />}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">
@@ -404,7 +408,7 @@ export default function App() {
               <rect x="5" y="11" width="14" height="9" rx="2" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
-            {tab === 'inicio' ? 'Lo de esta semana sale de la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'horario' ? 'El horario se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
+            {tab === 'inicio' ? 'Lo de esta semana sale de la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'control' ? 'El control de personal se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'horario' ? 'El horario se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : tab === 'ninos' ? 'La lista de niños se guarda en la hoja de Google de Hacienda y necesita internet y clave.' : 'Los archivos se leen en este navegador y no se suben a ningún servidor. Funciona sin internet.'} <span className="ver">Versión {VERSION}</span>
           </p>
         </div>
       </main>

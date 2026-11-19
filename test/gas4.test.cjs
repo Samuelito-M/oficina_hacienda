@@ -4,7 +4,7 @@ const S = crear(__dirname + '/../google/Code.gs'); S.props.CLAVE = 'K';
 const tk = S.call({ accion: 'entrar', clave: 'K' }).token;
 ok(S.call({ accion: 'personal' }).error === 'sesion', 'sin clave no se puede leer el personal');
 let r = S.call({ accion: 'personal', token: tk });
-ok(r.ok && r.version === 7 && r.datos.lista === null, 'personal vacío al principio');
+ok(r.ok && r.version === 8 && r.datos.lista === null, 'personal vacío al principio');
 const lista = [{ id: 'rosa', nombre: 'Rosa', alias: ['rosa'], fijo: false, casa: '', completo: 'Pérez Rosa', cedula: '17-1234-5678', hasta: '', hor: { n: 'Rosa', rol: 'aux', casa: '', hasta: '' } }, { id: 'rosa', nombre: 'Doble' }, { id: '', nombre: 'Sin id' }, { id: 'pedro', nombre: 'Pedro', fijo: true, casa: 'Casa 4', hasta: '2026-12', extra: '<b>x</b>' }];
 r = S.call({ accion: 'guardarPersonal', token: tk, lista });
 ok(r.ok && r.actualizado, 'guarda el personal');

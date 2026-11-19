@@ -10,6 +10,7 @@ const PALABRAS_EN = {
   kid: 'ninos', kids: 'ninos', child: 'ninos', children: 'ninos', boy: 'ninos', boys: 'ninos', girl: 'ninos', girls: 'ninos', house: 'casa', houses: 'casas', home: 'inicio',
   build: 'armar', make: 'hacer', create: 'crear', generate: 'generar', fill: 'llenar', copy: 'copiar', change: 'cambiar', swap: 'cambiar', replace: 'reemplazar', move: 'mover', assign: 'asignar',
   save: 'guardar', update: 'actualizar', undo: 'deshacer', download: 'descargar', print: 'imprimir', delete: 'borrar', erase: 'borrar', clear: 'borrar', remove: 'quitar',
+  absent: 'ausente', absence: 'ausencia', absences: 'ausencias', missed: 'falto', miss: 'falto', sick: 'enfermo', ill: 'enfermo', maternity: 'maternidad', paternity: 'paternidad', took: 'tomo', taken: 'tomado', year: 'ano', yearly: 'anual', annual: 'anual', total: 'total', summary: 'resumen', most: 'mas',
   vacation: 'vacaciones', vacations: 'vacaciones', holiday: 'feriado', holidays: 'feriados', leave: 'permiso', note: 'nota', notes: 'notas', comment: 'comentario', comments: 'comentario', observation: 'observacion', observations: 'observaciones',
   add: 'agregar', new: 'nuevo', worker: 'trabajador', workers: 'trabajador', employee: 'empleado', employees: 'empleado', staff: 'personal', caregiver: 'trabajador', caregivers: 'trabajador', aide: 'auxiliar', aides: 'auxiliar', hire: 'contratar', quit: 'renuncio',
   rule: 'regla', rules: 'reglas', green: 'verde', mean: 'significa', means: 'significa', meaning: 'significa', review: 'revisar', check: 'revisar', warning: 'aviso', warnings: 'avisos',
