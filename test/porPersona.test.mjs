@@ -1,0 +1,57 @@
+const A = await import('../src/lib/horarioApp.js');
+const ok = (c, m) => { console.log((c ? 'ok - ' : 'FALLA - ') + m); if (!c) process.exitCode = 1; };
+const vacio = () => ({ dias: {}, vac: [], fer: [], notas: {}, obs: '' });
+const con = (cambios) => {
+  const c = A.configInicial();
+  return A.normalizarConfig({ ...c, personal: c.personal.map((p) => (cambios[p.id] ? { ...p, ...cambios[p.id] } : p)) });
+};
+const cuenta = (clave, h, cfg, id) => {
+  const ctx = A.contexto(clave, h, cfg);
+  let semana = 0;
+  for (let d = 1; d <= ctx.n; d++) if (!ctx.finde(d) && ctx.donde(id, d)) semana++;
+  return { findes: ctx.findesDe(id), semana, ctx };
+};
+for (const clave of ['2026-12', '2027-01', '2027-02', '2027-05']) {
+  const cfg = con({ mayra: { fm: 1 }, yazmira: { fm: A.TODOS_FINDES, sm: 4 }, wendy: { fm: 0 }, dayanith: { sm: 0, fm: 2 } });
+  ok(cfg.personal.find((p) => p.id === 'mayra').fm === 1 && cfg.personal.find((p) => p.id === 'yazmira').sm === 4, `${clave}: se guardan los valores por persona`);
+  const r = A.armar(clave, vacio(), cfg, null);
+  const h = r.horario;
+  const m = cuenta(clave, h, cfg, 'mayra');
+  const y = cuenta(clave, h, cfg, 'yazmira');
+  const w = cuenta(clave, h, cfg, 'wendy');
+  const d = cuenta(clave, h, cfg, 'dayanith');
+  const findes = m.ctx.findes.length;
+  const posibles = (id) => { const pp = m.ctx.porId.get(id); let c = 0; for (let x = 1; x <= m.ctx.n; x++) if (!m.ctx.finde(x) && pp.dias.includes(m.ctx.wd(x))) c++; return c; };
+  ok(m.findes === 1 && m.semana === posibles('mayra'), `${clave}: Mayra (entre semana + 1 fin de semana): ${m.findes} fin de semana y ${m.semana} días entre semana`);
+  ok(y.semana === 4, `${clave}: Yazmira (al revés): ${y.semana} días entre semana (le tocan 4)`);
+  ok(y.findes >= findes - 1, `${clave}: Yazmira trabaja casi todos los fines de semana: ${y.findes} de ${findes}`);
+  ok(w.findes === 0 && w.semana === posibles('wendy'), `${clave}: Wendy sin fines de semana: ${w.findes}, entre semana ${w.semana}`);
+  ok(d.semana === 0 && d.findes === 2, `${clave}: Dayanith solo 2 fines de semana: ${d.findes} y ${d.semana} entre semana`);
+  ok(!r.extras.some((x) => ['mayra', 'wendy', 'dayanith'].includes(x.id)), `${clave}: a quien tiene un número fijo no le pone fines de semana extra`);
+  const P = A.problemas(A.contexto(clave, h, cfg));
+  ok(!P.some((p) => /Mayra|Yazmira|Wendy|Dayanith/.test(p.t) && /fines de semana|entre semana/.test(p.t)), `${clave}: sin avisos por pasarse de su número`);
+  const dias4 = [];
+  for (let x = 1; x <= y.ctx.n; x++) if (!y.ctx.finde(x) && y.ctx.donde('yazmira', x)) dias4.push(x);
+  ok(dias4.length === 4 && dias4[3] - dias4[0] >= 12, `${clave}: los 4 días de Yazmira quedan repartidos en el mes: ${dias4.join(', ')}`);
+}
+const cfg = con({ mayra: { fm: 1 } });
+const r = A.armar('2026-12', vacio(), cfg, null);
+let h = r.horario;
+const ctx0 = A.contexto('2026-12', h, cfg);
+const libre = ctx0.findes.find((f) => !f.dias.some((d) => ctx0.donde('mayra', d)));
+const dia = libre.dias.find((d) => ctx0.wd(d) === 6);
+ok(ctx0.motivo('mayra', dia, 'Casa 1') === 'ya tiene 1 fin de semana', 'al elegir a mano dice por qué no: "' + ctx0.motivo('mayra', dia, 'Casa 1') + '"');
+h = A.poner(h, dia, 'Casa 1', [...A.en(h, dia, 'Casa 1'), 'mayra']);
+const P = A.problemas(A.contexto('2026-12', h, cfg));
+ok(P.some((p) => /Mayra/.test(p.t) && /fin de semana más/.test(p.t)), 'si igual la pones, sale en verde para revisar');
+const cfgS = con({ yazmira: { sm: 2 } });
+let hs = A.armar('2026-12', vacio(), cfgS, null).horario;
+const cs = A.contexto('2026-12', hs, cfgS);
+const otro = Array.from({ length: cs.n }, (_, i) => i + 1).find((d) => !cs.finde(d) && !cs.donde('yazmira', d) && cs.porId.get('yazmira').dias.includes(cs.wd(d)));
+ok(cs.motivo('yazmira', otro, 'Casa 4') === 'ya tiene 2 días entre semana', 'entre semana también explica: "' + cs.motivo('yazmira', otro, 'Casa 4') + '"');
+hs = A.poner(hs, otro, 'Casa 4', [...A.en(hs, otro, 'Casa 4'), 'yazmira']);
+ok(A.problemas(A.contexto('2026-12', hs, cfgS)).some((p) => /Yazmira trabaja 3 días entre semana/.test(p.t)), 'y si se pasa, aviso en verde');
+const padre = con({ miguel: { fm: 1, sm: 2 } }).personal.find((p) => p.id === 'miguel');
+ok(padre.fm == null && padre.sm == null, 'a los padres de casa no se les aplica (siguen su regla de casa)');
+const base = A.armar('2026-12', vacio(), A.configInicial(), null).horario;
+ok(JSON.stringify(base) === JSON.stringify(A.armar('2026-12', vacio(), A.normalizarConfig(A.configInicial()), null).horario), 'sin números por persona, el horario sale igual que antes');

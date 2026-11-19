@@ -51,7 +51,8 @@ import {
   ponerNota,
   ponerObs,
   MAX_NOTA,
-  MAX_OBS
+  MAX_OBS,
+  TODOS_FINDES
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -255,6 +256,33 @@ function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
             {casasDe(p).map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {p.rol !== 'padre' && (
+        <div className="col">
+          <span className="et">Fines de semana al mes</span>
+          <select value={p.fm == null ? '' : String(p.fm)} aria-label={`Fines de semana al mes de ${p.n}`} data-fm onChange={(e) => cambiar(p.id, { fm: e.target.value === '' ? undefined : +e.target.value })}>
+            <option value="">Normal ({R.findesAux})</option>
+            {[0, 1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? 'Ninguno' : n}
+              </option>
+            ))}
+            <option value={TODOS_FINDES}>Todos</option>
+          </select>
+        </div>
+      )}
+      {p.rol === 'aux' && (
+        <div className="col">
+          <span className="et">Días entre semana al mes</span>
+          <select value={p.sm == null ? '' : String(p.sm)} aria-label={`Días entre semana al mes de ${p.n}`} data-sm onChange={(e) => cambiar(p.id, { sm: e.target.value === '' ? undefined : +e.target.value })}>
+            <option value="">Todos sus días</option>
+            {[0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15].map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? 'Ninguno' : n}
               </option>
             ))}
           </select>

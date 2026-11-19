@@ -45,12 +45,16 @@ const BASE = [
   { id: 'coro', rol: 'aux', casas: CASAS, dias: TODOS, hasta: '2026-11' }
 ];
 
+export const TODOS_FINDES = 9;
+
 function persona(p) {
   const rol = ROLES[p.rol] ? p.rol : 'aux';
   let casas = Array.isArray(p.casas) ? CASAS.filter((c) => p.casas.includes(c)) : [];
   if (rol === 'padre') casas = casas.slice(0, 1);
   const out = { id: String(p.id), n: String(p.n).trim(), rol, casas, pref: rol !== 'padre' && casas.includes(p.pref) ? p.pref : '', dias: Array.isArray(p.dias) ? TODOS.filter((w) => p.dias.includes(w)) : TODOS, oc: !!p.oc };
   if (typeof p.hasta === 'string' && /^20\d\d-\d\d$/.test(p.hasta)) out.hasta = p.hasta;
+  if (rol !== 'padre' && p.fm !== '' && p.fm != null && Number.isFinite(+p.fm) && +p.fm >= 0) out.fm = Math.min(TODOS_FINDES, Math.floor(+p.fm));
+  if (rol === 'aux' && p.sm !== '' && p.sm != null && Number.isFinite(+p.sm) && +p.sm >= 0) out.sm = Math.min(23, Math.floor(+p.sm));
   return out;
 }
 
@@ -186,7 +190,13 @@ export function contexto(clave, horario, config) {
   };
   const falta = (k, d) => (revisa ? faltaRegla(k, d) : 0);
   const findesDe = (id) => findes.filter((f) => f.dias.some((d) => donde(id, d))).length;
-  const tope = (p) => (p.rol === 'padre' ? R.findesPadres : R.findesAux + Math.max(0, findes.length - 4));
+  const tope = (p) => (p.rol === 'padre' ? R.findesPadres : p.fm != null ? Math.min(p.fm, findes.length) : R.findesAux + Math.max(0, findes.length - 4));
+  const diasSemanaDe = (id) => {
+    let c = 0;
+    for (let d = 1; d <= n; d++) if (!finde(d) && donde(id, d)) c++;
+    return c;
+  };
+  const topeSemana = (p) => (p && p.rol === 'aux' && p.sm != null ? p.sm : null);
   const motivo = (id, d, k) => {
     const p = porId.get(id);
     if (!p) return 'no está en el personal';
@@ -199,11 +209,12 @@ export function contexto(clave, horario, config) {
     if (!p.dias.includes(wd(d))) return p.rol === 'aux' && !finde(d) ? `descansa los ${DIAS_LARGO[wd(d)]}` : `no trabaja los ${DIAS_LARGO[wd(d)]}`;
     if (finde(d) && !dd) {
       const f = findes[findeDe(d)];
-      if (!f.dias.some((x) => donde(id, x)) && findesDe(id) >= tope(p)) return `ya tiene ${tope(p)} fines de semana`;
+      if (!f.dias.some((x) => donde(id, x)) && findesDe(id) >= tope(p)) return tope(p) === 0 ? 'no trabaja fines de semana' : `ya tiene ${tope(p)} ${tope(p) === 1 ? 'fin de semana' : 'fines de semana'}`;
     }
+    if (!finde(d) && !dd && topeSemana(p) != null && diasSemanaDe(id) >= topeSemana(p)) return topeSemana(p) === 0 ? 'no trabaja entre semana' : `ya tiene ${topeSemana(p)} días entre semana`;
     return '';
   };
-  return { clave, anio, mes, n, wd, revisa, finde, semanaDe, semanas: semanaDe(n) + 1, findes, findeDe, bloque, enVac, donde, pide, falta, faltaRegla, hayPadres, esPadre, findesDe, tope, motivo, nombre, porId, horario, config };
+  return { clave, anio, mes, n, wd, revisa, finde, semanaDe, semanas: semanaDe(n) + 1, findes, findeDe, bloque, enVac, donde, pide, falta, faltaRegla, hayPadres, esPadre, findesDe, tope, diasSemanaDe, topeSemana, motivo, nombre, porId, horario, config };
 }
 
 export function diasDeSemana(ctx, s) {
@@ -241,6 +252,12 @@ export function problemas(ctx, semana = null) {
     if (suyos.length > max) {
       const d = suyos[max].dias.find((x) => ctx.donde(p.id, x));
       if (dentro(d)) out.push({ tipo: 'regla', d, k: ctx.donde(p.id, d), t: suyos.length === max + 1 ? `${p.n} hace un fin de semana más este mes: ${suyos.length} (lo normal son ${max})` : `${p.n} trabaja ${suyos.length} fines de semana (lo normal son ${max})` });
+    }
+    const maxS = ctx.topeSemana(p);
+    if (maxS != null) {
+      const dias = [];
+      for (let d = 1; d <= ctx.n; d++) if (!ctx.finde(d) && ctx.donde(p.id, d)) dias.push(d);
+      if (dias.length > maxS && dentro(dias[maxS])) out.push({ tipo: 'regla', d: dias[maxS], k: ctx.donde(p.id, dias[maxS]), t: `${p.n} trabaja ${dias.length} días entre semana este mes (le tocan ${maxS})` });
     }
   }
   return out;
@@ -432,7 +449,7 @@ export function armar(clave, horario, config, anterior) {
   const cuenta = {};
   for (const c of CASAS) cuenta[c] = grupos.filter((g) => !(g.sigue && anterior) && g.dias.some((d) => ctx.hayPadres(c, d))).length;
   for (const c of CASAS) prendido[c] = c in previo.casa ? true : anterior ? false : c === 'Casa 2' || c === 'Casa 4';
-  const topeAux = R.findesAux + Math.max(0, grupos.length - 4);
+  const topeP = (p) => (p.fm != null ? Math.min(p.fm, grupos.length) : R.findesAux + Math.max(0, grupos.length - 4));
   for (const g of grupos) {
     if (g.sigue && anterior && previo.ultimo) {
       for (const d of g.dias) {
@@ -478,7 +495,7 @@ export function armar(clave, horario, config, anterior) {
   const faltaEn = (g, c) => Math.max(...g.dias.map((d) => ctx.faltaRegla(c, d)));
   const puedeIr = (p, g) => !g.dias.some((d) => ctx.donde(p.id, d)) && g.dias.every((d) => libre(p, d) || !p.dias.includes(ctx.wd(d))) && g.dias.some((d) => libre(p, d));
   const demanda = porArmar.reduce((a, g) => a + CASAS.reduce((x, c) => x + faltaEn(g, c), 0), 0);
-  const oferta = auxFinde.reduce((a, p) => a + Math.max(0, Math.min(topeAux - ctx.findesDe(p.id), porArmar.filter((g) => puedeIr(p, g)).length)), 0);
+  const oferta = auxFinde.reduce((a, p) => a + Math.max(0, Math.min(topeP(p) - ctx.findesDe(p.id), porArmar.filter((g) => puedeIr(p, g)).length)), 0);
   let recorte = R.extraFinde ? 0 : Math.max(0, demanda - oferta);
   for (const g of [...porArmar].reverse()) {
     g.menos = 0;
@@ -489,8 +506,8 @@ export function armar(clave, horario, config, anterior) {
   }
   for (const g of porArmar) {
     const quedan = porArmar.length - porArmar.indexOf(g);
-    const urgencia = (p) => (topeAux - ctx.findesDe(p.id)) / quedan;
-    const candidatos = auxFinde.filter((p) => ctx.findesDe(p.id) < topeAux && puedeIr(p, g));
+    const urgencia = (p) => (topeP(p) - ctx.findesDe(p.id)) / quedan;
+    const candidatos = auxFinde.filter((p) => ctx.findesDe(p.id) < topeP(p) && puedeIr(p, g));
     const pide = (c) => faltaEn(g, c) - (c === 'Casa 2' ? g.menos : 0);
     const puestos = [];
     const primero = CASAS.filter((c) => pide(c) > 0).sort((a, b) => (g.estado[a] ? 1 : 0) - (g.estado[b] ? 1 : 0) || (a === 'Casa 2') - (b === 'Casa 2'));
@@ -518,24 +535,35 @@ export function armar(clave, horario, config, anterior) {
     for (const g of porArmar) {
       for (const c of [...CASAS].sort((a, b) => (a === 'Casa 2') - (b === 'Casa 2'))) {
         while (faltaEn(g, c) > 0) {
-          const cand = auxFinde.filter((p) => p.casas.includes(c) && puedeIr(p, g) && ctx.findesDe(p.id) <= topeAux);
+          const cand = auxFinde.filter((p) => p.casas.includes(c) && puedeIr(p, g) && (p.fm != null ? ctx.findesDe(p.id) < topeP(p) : ctx.findesDe(p.id) <= topeP(p)));
           if (!cand.length) break;
           cand.sort((a, b) => ctx.findesDe(a.id) - ctx.findesDe(b.id) || veces(a.id) - veces(b.id) || costoCasa(a, c, 'f') - costoCasa(b, c, 'f') || auxFinde.indexOf(a) - auxFinde.indexOf(b));
           const p = cand[0];
           for (const d of g.dias) if (libre(p, d)) agregar(d, c, p.id);
-          if (ctx.findesDe(p.id) > topeAux) extras.push({ id: p.id, n: p.n, casa: c, dias: g.dias.filter((d) => ctx.donde(p.id, d) === c), total: ctx.findesDe(p.id) });
+          if (ctx.findesDe(p.id) > topeP(p)) extras.push({ id: p.id, n: p.n, casa: c, dias: g.dias.filter((d) => ctx.donde(p.id, d) === c), total: ctx.findesDe(p.id) });
         }
       }
     }
   }
 
+  const elegidos = {};
+  for (const p of auxSemana) {
+    if (p.sm == null) continue;
+    const ya = ctx.diasSemanaDe(p.id);
+    const posibles = [];
+    for (let d = 1; d <= ctx.n; d++) if (!ctx.finde(d) && libre(p, d)) posibles.push(d);
+    const quiero = Math.max(0, Math.min(p.sm - ya, posibles.length));
+    const set = new Set();
+    for (let i = 0; i < quiero; i++) set.add(posibles[Math.floor(((i + 0.5) * posibles.length) / quiero)]);
+    elegidos[p.id] = set;
+  }
   let ayer = {};
   for (let d = 1; d <= ctx.n; d++) {
     if (ctx.finde(d)) {
       ayer = {};
       continue;
     }
-    const disponibles = () => auxSemana.filter((p) => libre(p, d));
+    const disponibles = () => auxSemana.filter((p) => libre(p, d) && (!elegidos[p.id] || elegidos[p.id].has(d)));
     const costo = (p, casa) => (p.casas.includes(casa) ? costoCasa(p, casa, 's') - (ayer[p.id] === casa ? 0.6 : 0) : null);
     const puestos = [];
     for (const c of CASAS) for (let i = 0; i < ctx.faltaRegla(c, d); i++) puestos.push(c);

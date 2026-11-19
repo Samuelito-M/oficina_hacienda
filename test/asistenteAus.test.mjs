@@ -52,3 +52,7 @@ x = await ask('total absence days this year');
 ok(x.e.tipo === 'aus_resumen' && x.t.includes('of vacation'), 'EN resumen: ' + x.t);
 x = await ask('quien trabaja el sabado');
 ok(x.e.tipo === 'quien_trabaja', 'lo de siempre sigue funcionando');
+for (const q of ['como pongo que alguien trabaje solo un fin de semana al mes', 'how do I set someone to work only one weekend a month']) {
+  const e = entender(q, { hoy, trabajadores: config.personal, ninos: [], idioma: idioma(q) || 'es' });
+  ok(e.tipo === 'guia' && e.articulo.id === 'casasTrabajador', `"${q}" → explica fines de semana por persona`);
+}
