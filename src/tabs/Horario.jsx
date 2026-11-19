@@ -544,7 +544,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
     return () => window.removeEventListener('beforeunload', f);
   }, [sucio]);
 
-  const ctx = useMemo(() => contexto(clave, horario || horarioVacio(), config), [clave, horario, config]);
+  const ctx = useMemo(() => contexto(clave, horario || { ...horarioVacio(), ...base }, config), [clave, horario, config, base]);
   const todos = useMemo(() => (horario ? problemas(ctx) : []), [ctx, horario]);
   const faltas = todos.filter((p) => p.tipo === 'falta').length;
 
@@ -883,7 +883,36 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
             🗓️
           </div>
           <h3>{nombreMes(clave)} todavía está vacío</h3>
-          <p>La app arma el mes completo con las reglas: padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y el on call. Después solo cambias lo que haga falta.</p>
+          <div className="h-paso">
+            <span className="h-paso-n">1</span>
+            <div>
+              <b>¿Hay vacaciones, permisos o feriados en {soloMes(clave)}?</b>
+              {base.vac.length || base.fer.length ? (
+                <ul className="h-paso-lista" id="h-portada-vac">
+                  {base.vac.map((v, i) => (
+                    <li key={i}>
+                      {ctx.nombre(v.id)}: {v.de === v.a ? `el ${v.de}` : `del ${v.de} al ${v.a}`}
+                    </li>
+                  ))}
+                  {base.fer.map((f) => (
+                    <li key={`f${f}`}>Feriado: {DIAS_LARGO[ctx.wd(f)]} {f}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="hint">Ponlos primero, así la app no pone a nadie esos días.</p>
+              )}
+              <button type="button" className="h-btn" id="h-vac-portada" onClick={() => setVentana({ tipo: 'vac' })}>
+                {base.vac.length || base.fer.length ? 'Cambiar vacaciones y feriados' : 'Poner vacaciones y feriados'}
+              </button>
+            </div>
+          </div>
+          <div className="h-paso">
+            <span className="h-paso-n">2</span>
+            <div>
+              <b>Arma el horario</b>
+              <p className="hint">La app arma el mes completo con las reglas: padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y el on call{base.vac.length || base.fer.length ? ', sin poner a nadie en sus vacaciones' : ''}. Después solo cambias lo que haga falta.</p>
+            </div>
+          </div>
           <button type="button" className="h-btn prim grande" id="h-armar" onClick={() => llenar(true)}>
             Armar el horario con las reglas
           </button>
@@ -1082,7 +1111,7 @@ export default function Horario({ personal, avisar, onConfig, mesInicial }) {
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'vac'} onCerrar={() => setVentana(null)} etiqueta="Vacaciones y feriados">
-        {horario && <Vacaciones ctx={ctx} onCambio={cambiar} onCerrar={() => setVentana(null)} />}
+        <Vacaciones ctx={ctx} onCambio={horario ? cambiar : (h) => setBase({ vac: h.vac, fer: h.fer })} onCerrar={() => setVentana(null)} />
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'bajar'} onCerrar={() => setVentana(null)} etiqueta="Descargar">

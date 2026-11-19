@@ -120,7 +120,7 @@ ok(x.e.articulo.id === 'armar' && x.t.includes('Build the monthly schedule') && 
 x = await ask(x.r.sugerencias[0]);
 ok(x.e.tipo === 'guia' && x.lang === 'en', 'EN: tapping an English suggestion opens that topic');
 x = await ask('hello');
-ok(x.t.includes("I'm the Office helper"), 'EN: hello');
+ok(x.t.includes("I'm Sam Jr."), 'EN: hello');
 x = await ask('thanks!');
 ok(x.t.includes("You're welcome"), 'EN: thanks');
 x = await ask('blah blah xyz');

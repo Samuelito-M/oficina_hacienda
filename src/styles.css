@@ -672,3 +672,10 @@ body:has(.h-guardar) .as-abrir,body:has(.al-barra) .as-abrir{bottom:calc(86px + 
 .al-nadie{border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .al-nadie legend{font-weight:600;padding:0 4px}
 .al-nadie label{display:flex;gap:8px;align-items:center}
+
+.h-paso{display:flex;gap:12px;text-align:left;align-items:flex-start;width:100%;max-width:520px;margin:4px auto;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.h-paso>div{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.h-paso p{margin:0}
+.h-paso .h-btn{align-self:flex-start}
+.h-paso-n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;font-weight:800}
+.h-paso-lista{margin:0;padding-left:18px;font-size:14.5px}

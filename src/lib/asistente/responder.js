@@ -102,7 +102,7 @@ function textos(lang) {
     hecho: (c, r) => (E ? `✓ The **${mes(c)}** schedule is saved${r ? `, with ${r} ${r === 1 ? 'thing' : 'things'} to check (marked in green)` : ''}.` : `✓ El horario de **${mes(c)}** ya está guardado${r ? `, con ${r} ${r === 1 ? 'cosa' : 'cosas'} para revisar (marcadas en verde)` : ''}.`),
     abrirlo: E ? 'Open it' : 'Abrirlo',
     llevame: (t) => (E ? `Take me to ${t}` : `Llévame a ${t}`),
-    hola: E ? "Hi! 👋 I'm the Office helper. Ask me who's working, birthdays, sizes, or how to do something in the app." : '¡Hola! 👋 Soy la ayuda de la Oficina. Puedes preguntarme quién trabaja, cumpleaños, tallas o cómo hacer algo en la app.',
+    hola: E ? "Hi! 👋 I'm Sam Jr., your Office helper. Ask me who's working, birthdays, sizes, or how to do something in the app." : '¡Hola! 👋 Soy Sam Jr., tu ayudante de la Oficina. Puedes preguntarme quién trabaja, cumpleaños, tallas o cómo hacer algo en la app.',
     gracias: E ? "You're welcome! 😊 I'm here if you need anything else." : '¡Con gusto! 😊 Aquí estoy si necesitas algo más.',
     noEntendi: E ? "I didn't quite get that 🙈. Try asking another way, or tap one of these:" : 'No entendí bien 🙈. Prueba escribirlo de otra forma, o toca una de estas:',
     ejemplos: E ? EJEMPLOS_EN : EJEMPLOS,
