@@ -6,6 +6,7 @@ import { GUIA, EJEMPLOS, EJEMPLOS_EN } from './guia.js';
 import { DIAS_BONITO, DIAS_EN, MESES_P, MESES_EN, fechaBonita, claveDe, finDeSemana, semana, mas, diasDelMes } from './fechas.js';
 import { CASAS } from './entender.js';
 import { respuestaAusencias } from './ausenciasChat.js';
+import { ausenciasDeMes } from '../ausencias.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
 const mayus = (s) => s[0].toUpperCase() + s.slice(1);
@@ -48,13 +49,13 @@ function textos(lang) {
     elDia: (f, hoy) => (E ? `on ${fecha(f, hoy)}` : `el ${fecha(f, hoy)}`),
     delAl: (a, b) => (E ? `from ${corta(a)} to ${corta(b)}` : `del ${corta(a)} al ${corta(b)}`),
     noTrabajan: (xs) => (xs.length ? (E ? `Not working: ${y(xs)}.` : `No trabajan: ${y(xs)}.`) : E ? 'Everyone works that day.' : 'Ese día trabajan todos.'),
-    deVacaciones: (xs) => (E ? `On vacation: ${y(xs)}.` : `De vacaciones: ${y(xs)}.`),
+    deVacaciones: (xs) => (E ? `On vacation or absent: ${y(xs)}.` : `De vacaciones o ausentes: ${y(xs)}.`),
     feriado: E ? 'That day is marked as a holiday.' : 'Ese día está marcado como feriado.',
     aQuien: (xs) => (E ? `Who do you mean: ${y(xs)}?` : `¿A quién te refieres: ${y(xs)}?`),
     diasDe: (n) => (E ? `What days does ${n} work?` : `¿Qué días trabaja ${n}?`),
     diasDeMes: (n) => (E ? `What days does ${n} work this month?` : `¿Qué días trabaja ${n} este mes?`),
     siTrabaja: (n, cuando, k) => (E ? `Yes, **${n}** works ${cuando} in **${k}**.` : `Sí, **${n}** trabaja ${cuando} en **${k}**.`),
-    noTrabajaVac: (n) => (E ? `No, ${n} is on vacation that day.` : `No, ${n} está de vacaciones ese día.`),
+    noTrabajaVac: (n) => (E ? `No, ${n} is on vacation or absent that day.` : `No, ${n} está de vacaciones o ausente ese día.`),
     noTrabaja: (n, cuando) => (E ? `No, **${n}** doesn't work ${cuando}.` : `No, **${n}** no trabaja ${cuando}.`),
     cuandoDia: (f, hoy) => {
       const t = fecha(f, hoy);
@@ -63,7 +64,7 @@ function textos(lang) {
     tituloMes: (c) => (E ? `in ${mes(c)}` : `en ${mes(c)}`),
     esosDias: E ? 'those days' : 'esos días',
     sinDias: (n, t) => (E ? `${n} has no days assigned ${t}.` : `${n} no tiene días puestos ${t}.`),
-    vacDel: (a, b) => (E ? `On vacation from ${corta(a)} to ${corta(b)}.` : `De vacaciones: del ${corta(a)} al ${corta(b)}.`),
+    vacDel: (a, b) => (E ? `On vacation or absent from ${corta(a)} to ${corta(b)}.` : `De vacaciones o ausente: del ${corta(a)} al ${corta(b)}.`),
     resumenDias: (n, t, dias, findes, oc) =>
       E
         ? `**${n}** ${t}: ${dias} ${dias === 1 ? 'day' : 'days'} in houses${findes ? `, ${findes} ${findes === 1 ? 'weekend' : 'weekends'}` : ''}${oc ? ` and ${oc} on call` : ''}.`
@@ -119,6 +120,7 @@ async function horariosDe(fechas, datos) {
   for (const m of meses) {
     const r = await datos.horario(m);
     const h = r && normalizarHorario(r.horario);
+    if (h) h.vac = [...ausenciasDeMes(datos.personal || [], m), ...h.vac.filter((v) => !v.t)];
     out[m] = h && Object.keys(h.dias).length ? { horario: h, config: normalizarConfig(r.config) } : null;
   }
   return out;

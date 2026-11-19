@@ -35,19 +35,46 @@ export function limpiarAus(lista) {
     out.push({ t: esTipo(x.t) ? x.t : 'otro', de: x.de, a: x.a, ...(typeof x.n === 'string' && x.n.trim() ? { n: x.n.trim().slice(0, MAX_NOTA_AUS) } : {}) });
   }
   out.sort((p, q) => (p.de < q.de ? -1 : p.de > q.de ? 1 : p.a < q.a ? -1 : p.a > q.a ? 1 : 0));
-  return out.slice(0, MAX_AUS);
+  return out.slice(-MAX_AUS);
 }
 
 const igual = (p, q) => p.t === q.t && p.de === q.de && p.a === q.a && (p.n || '') === (q.n || '');
+export const llaveAus = (id, x) => `${id}|${x.t}|${x.de}|${x.a}|${x.n || ''}`;
+
+export function unirAus(a, b, sin = new Set(), id = '') {
+  const out = [...(a || [])];
+  for (const x of b || []) if (!out.some((y) => igual(x, y)) && !sin.has(llaveAus(id, x))) out.push(x);
+  return limpiarAus(out);
+}
 
 export function agregarAus(lista, id, aus) {
   const nueva = limpiarAus([aus])[0];
   if (!nueva) return lista;
-  return lista.map((p) => (p.id === id ? (((p.aus || []).some((x) => igual(x, nueva))) ? p : { ...p, aus: limpiarAus([...(p.aus || []), nueva]) }) : p));
+  let cambio = false;
+  const out = lista.map((p) => {
+    if (p.id !== id || (p.aus || []).some((x) => igual(x, nueva))) return p;
+    cambio = true;
+    return { ...p, aus: limpiarAus([...(p.aus || []), nueva]) };
+  });
+  return cambio ? out : lista;
 }
 
 export function quitarAus(lista, id, aus) {
-  return lista.map((p) => (p.id === id ? { ...p, aus: (p.aus || []).filter((x) => !igual(x, aus)) } : p));
+  let cambio = false;
+  const out = lista.map((p) => {
+    if (p.id !== id || !(p.aus || []).some((x) => igual(x, aus))) return p;
+    cambio = true;
+    return { ...p, aus: p.aus.filter((x) => !igual(x, aus)) };
+  });
+  return cambio ? out : lista;
+}
+
+export function quitadas(antes, despues) {
+  const ahora = new Set();
+  for (const p of despues) for (const x of p.aus || []) ahora.add(llaveAus(p.id, x));
+  const out = [];
+  for (const p of antes) for (const x of p.aus || []) if (!ahora.has(llaveAus(p.id, x))) out.push(llaveAus(p.id, x));
+  return out;
 }
 
 export function cambiarAus(lista, id, antes, despues) {

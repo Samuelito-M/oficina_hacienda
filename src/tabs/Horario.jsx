@@ -61,6 +61,7 @@ const nombreMes = (clave) => {
 };
 const soloMes = (clave) => MESES[partesMes(clave).mes];
 const J = (x) => JSON.stringify(x);
+const firma = (h) => JSON.stringify({ ...h, vac: [] });
 const estaVacio = (h) => !h || (!Object.keys(h.dias).length && !Object.keys(h.notas || {}).length && !h.obs);
 
 function cuando(iso) {
@@ -386,6 +387,8 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   const delMes = [];
   for (const p of personal) for (const x of p.aus || []) if (x.de.slice(0, 7) <= mesIni && x.a.slice(0, 7) >= mesIni) delMes.push({ p, x });
   delMes.sort((q, r) => (q.x.de < r.x.de ? -1 : 1));
+  const soloEste = delMes.filter(({ x }) => x.de.slice(0, 7) === mesIni && x.a.slice(0, 7) === mesIni);
+  const [confirmar, setConfirmar] = useState(false);
   const agregar = () => {
     if (!id) return;
     const d1 = de;
@@ -437,6 +440,31 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
         ))}
         {!delMes.length && !h.fer.length && <p className="hint">Nada este mes.</p>}
       </div>
+      {soloEste.length >= 2 && (
+        <div className="h-fila">
+          {confirmar ? (
+            <>
+              <span>¿Quitar {soloEste.length} ausencias de {mes}?</span>
+              <button type="button" className="h-btn" id="h-aus-todas-ok" onClick={() => {
+                let l = personal;
+                for (const { p, x } of soloEste) l = quitarAus(l, p.id, x);
+                setPersonal(l);
+                setConfirmar(false);
+              }}>
+                Sí, quitarlas
+              </button>
+              <button type="button" className="h-btn" onClick={() => setConfirmar(false)}>
+                No
+              </button>
+            </>
+          ) : (
+            <button type="button" className="h-btn" id="h-aus-todas" onClick={() => setConfirmar(true)}>
+              Quitar todas las ausencias de {mes}
+            </button>
+          )}
+          {soloEste.length < delMes.length && <span className="hint">Las que siguen en otros meses (como una licencia larga) se quitan una por una.</span>}
+        </div>
+      )}
       <div className="h-caja">
         <b>Agregar una ausencia</b>
         <div className="h-fila">
@@ -498,18 +526,18 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial }) {
+export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true }) {
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
   const [clave, setClave] = useState(mesInicial || claveMes(hoy.getFullYear(), hoy.getMonth()));
   const [estado, setEstado] = useState('cargando');
   const [error, setError] = useState('');
-  const [horario, setHorario] = useState(null);
+  const [horarioCrudo, setHorario] = useState(null);
   const [guardado, setGuardado] = useState(null);
   const [actualizado, setActualizado] = useState('');
   const [anterior, setAnterior] = useState(null);
-  const [base, setBase] = useState({ vac: [], fer: [] });
+  const [baseCruda, setBase] = useState({ vac: [], fer: [] });
   const [config, setConfig] = useState(normalizarConfig(null));
   const [configGuardada, setConfigGuardada] = useState('');
   const [nuevos, setNuevos] = useState([]);
@@ -521,6 +549,13 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   const archivo = useRef(null);
   const conRef = useRef(con);
   conRef.current = con;
+  const claveRef = useRef(clave);
+  claveRef.current = clave;
+  const personalRef = useRef(personal);
+  personalRef.current = personal;
+  const vacMes = useMemo(() => ausenciasDeMes(personal, clave), [personal, clave]);
+  const horario = useMemo(() => (horarioCrudo ? { ...horarioCrudo, vac: vacMes } : null), [horarioCrudo, vacMes]);
+  const base = useMemo(() => ({ fer: baseCruda.fer, vac: vacMes }), [baseCruda, vacMes]);
 
   const salir = (err) => {
     borrarSesion();
@@ -534,16 +569,25 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     try {
       const c = conRef.current;
       const r = await llamar(c.url, { accion: 'horario', mes: cual, token: c.token });
+      if (cual !== claveRef.current) return;
       const d = r.datos || {};
       const h = normalizarHorario(d.horario);
+      const legado = h ? h.vac.filter((v) => !v.t) : [];
+      if (legado.length) {
+        const antes = personalRef.current;
+        const nueva = migrarVac(antes, cual, legado);
+        if (nueva !== antes) setPersonal(nueva);
+        h.vac = h.vac.map((v) => (v.t ? v : { ...v, t: 'vac' }));
+        llamar(c.url, { accion: 'guardarHorario', mes: cual, horario: h, token: c.token }).catch(() => {});
+      }
       const antCrudo = normalizarHorario(d.anterior);
       const ant = estaVacio(antCrudo) ? null : antCrudo;
       const cfg = normalizarConfig(d.config);
       setConfig(cfg);
       setConfigGuardada(d.config && d.config.v === 3 ? J(cfg) : '');
-      setBase({ vac: h ? h.vac : [], fer: h ? h.fer : [] });
+      setBase({ vac: [], fer: h ? h.fer : [] });
       setHorario(estaVacio(h) ? null : h);
-      setGuardado(h ? J(h) : null);
+      setGuardado(h ? firma(h) : null);
       setActualizado(d.actualizado || '');
       setAnterior(ant);
       setNuevos([]);
@@ -551,6 +595,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       setSem(0);
       setEstado('listo');
     } catch (err) {
+      if (cual !== claveRef.current) return;
       if (err.codigo === 'sesion') return salir(err);
       setError(err.message === 'Acción desconocida.' ? 'viejo' : err.message || 'No se pudo cargar el horario.');
       setEstado('error');
@@ -561,7 +606,36 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     if (con.token) cargar(clave);
   }, [con.token, clave]);
 
-  const sucio = horario != null && J(horario) !== guardado;
+  const sucio = horarioCrudo != null && firma(horarioCrudo) !== guardado;
+
+  const yaActivo = useRef(activo);
+  useEffect(() => {
+    if (!activo) {
+      yaActivo.current = false;
+      return;
+    }
+    const volvio = !yaActivo.current;
+    yaActivo.current = true;
+    if (mesInicial && mesInicial !== claveRef.current) {
+      if (sucio) avisar('Primero guarda o deshaz los cambios de este mes.');
+      else setClave(mesInicial);
+      return;
+    }
+    if (volvio && !sucio && con.token && estado !== 'cargando') cargar(claveRef.current);
+  }, [activo, mesInicial]);
+
+  const guardarFeriados = async (fer) => {
+    setBase((b) => ({ ...b, fer }));
+    const vacio = { ...horarioVacio(), vac: vacMes, fer };
+    try {
+      const r = await llamar(con.url, { accion: 'guardarHorario', mes: clave, horario: vacio, token: con.token });
+      setGuardado(firma(vacio));
+      setActualizado(r.actualizado || new Date().toISOString());
+    } catch (err) {
+      if (err.codigo === 'sesion') return salir(err);
+      avisar('No se pudo guardar el feriado en Google. Revisa tu internet e intenta otra vez.');
+    }
+  };
 
   useEffect(() => {
     if (onConfig && estado === 'listo') onConfig(configGuardada ? JSON.parse(configGuardada) : config);
@@ -576,26 +650,6 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     window.addEventListener('beforeunload', f);
     return () => window.removeEventListener('beforeunload', f);
   }, [sucio]);
-
-  useEffect(() => {
-    if (estado !== 'listo') return;
-    const actual = (horario || base).vac;
-    const legado = actual.filter((v) => !v.t);
-    if (legado.length) {
-      const r = migrarVac(personal, clave, legado);
-      if (r !== personal) {
-        setPersonal(r);
-        return;
-      }
-    }
-    const aus = ausenciasDeMes(personal, clave);
-    if (J(aus) === J(actual)) return;
-    if (horario) {
-      const nuevo = { ...horario, vac: aus };
-      setHorario(nuevo);
-      if (J(horario) === guardado) setGuardado(J(nuevo));
-    } else setBase((b) => ({ ...b, vac: aus }));
-  }, [estado, clave, personal, horario, base]);
 
   const ctx = useMemo(() => contexto(clave, horario || { ...horarioVacio(), ...base }, config), [clave, horario, config, base]);
   const todos = useMemo(() => (horario ? problemas(ctx) : []), [ctx, horario]);
@@ -618,7 +672,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       const primera = guardado == null;
       const r = await llamar(con.url, { accion: 'guardarHorario', mes: clave, horario, token: con.token });
       await guardarConfig(config);
-      setGuardado(J(horario));
+      setGuardado(firma(horario));
       setActualizado(r.actualizado || new Date().toISOString());
       setNuevos([]);
       setNotas([]);
@@ -646,7 +700,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       setOcupado('borrar');
       try {
         const r = await llamar(con.url, { accion: 'guardarHorario', mes: clave, horario: vacio, token: con.token });
-        setGuardado(J(vacio));
+        setGuardado(firma(vacio));
         setActualizado(r.actualizado || new Date().toISOString());
       } catch (err) {
         setOcupado('');
@@ -656,7 +710,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       }
       setOcupado('');
     }
-    setBase({ vac: vacio.vac, fer: vacio.fer });
+    setBase({ vac: [], fer: vacio.fer });
     setHorario(null);
     setNuevos([]);
     setNotas([]);
@@ -1164,7 +1218,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'vac'} onCerrar={() => setVentana(null)} etiqueta="Ausencias y feriados">
-        <Vacaciones ctx={ctx} personal={personal} setPersonal={setPersonal} onCambio={horario ? cambiar : (h) => setBase((b) => ({ ...b, fer: h.fer }))} onCerrar={() => setVentana(null)} />
+        <Vacaciones ctx={ctx} personal={personal} setPersonal={setPersonal} onCambio={horario ? cambiar : (h) => guardarFeriados(h.fer)} onCerrar={() => setVentana(null)} />
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'bajar'} onCerrar={() => setVentana(null)} etiqueta="Descargar">

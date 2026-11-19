@@ -21,11 +21,12 @@ import { descargar, abrirPdf, extension, leerBytes, MIME, nombreSeguro } from '.
 import { MESES, fechaCorta } from './lib/text.js';
 import { aAnalisis, normalizarConfig, normalizarHorario, partesMes } from './lib/horarioApp.js';
 import { leerConexion, llamar } from './lib/ninos.js';
-import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar } from './lib/personalNube.js';
+import { hayPendiente, marcarPendiente, mezclarPersonal, mismaLista, paraGuardar, leerQuitadas, anotarQuitadas, limpiarQuitadas } from './lib/personalNube.js';
+import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.21';
+const VERSION = '1.22';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -59,6 +60,7 @@ export default function App() {
   const [guardadoOk, setGuardadoOk] = useState(true);
   const [horConfig, setHorConfig] = useState(null);
   const [mesHorario, setMesHorario] = useState(null);
+  const [horarioMontado, setHorarioMontado] = useState(() => leerTab() === 'horario');
 
   useEffect(() => {
     const f = () => setTab(leerTab());
@@ -67,6 +69,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     document.body.dataset.tab = tab;
+    if (tab === 'horario') setHorarioMontado(true);
     if (tab !== 'horario') setMesHorario(null);
   }, [tab]);
   const irAHorario = (mes) => {
@@ -96,8 +99,11 @@ export default function App() {
     if (!c.token || !c.url) return setNube({ estado: 'local' });
     try {
       await llamar(c.url, { accion: 'guardarPersonal', token: c.token, lista: paraGuardar(lista) });
-      if (personalRef.current === lista) marcarPendiente(false);
       setNube({ estado: 'ok', version: version || (nubeRef.current && nubeRef.current.version) || 0 });
+      if (personalRef.current === lista) {
+        marcarPendiente(false);
+        limpiarQuitadas();
+      } else if (!espera.current) espera.current = setTimeout(() => subirNube(personalRef.current), 300);
     } catch (err) {
       setNube(err.codigo === 'sesion' ? { estado: 'local' } : { estado: 'error', mensaje: err.message || 'No se pudo guardar en Google.' });
     }
@@ -111,15 +117,19 @@ export default function App() {
       const r = await llamar(c.url, { accion: 'personal', token: c.token });
       const servidor = r.datos && Array.isArray(r.datos.lista) ? r.datos.lista : null;
       const local = personalRef.current;
-      const final = servidor ? mezclarPersonal(servidor, local, hayPendiente()) : local;
+      const version = +r.version || 0;
+      const final = servidor ? mezclarPersonal(servidor, local, hayPendiente(), { quitadas: leerQuitadas(), ausSoloLocal: version > 0 && version < 8 }) : local;
       if (final !== local) {
         setPersonalState(final);
         setGuardadoOk(guardarPersonal(final));
       }
-      const version = +r.version || 0;
       if (!servidor || !mismaLista(final, servidor)) await subirNube(final, version);
-      else {
+      else if (personalRef.current !== final) {
+        setNube({ estado: 'ok', version });
+        await subirNube(personalRef.current, version);
+      } else {
         marcarPendiente(false);
+        limpiarQuitadas();
         setNube({ estado: 'ok', version });
       }
     } catch (err) {
@@ -143,6 +153,8 @@ export default function App() {
   }, [conectarNube, subirNube]);
 
   const setPersonal = useCallback((lista) => {
+    if (lista === personalRef.current) return;
+    anotarQuitadas(quitadas(personalRef.current, lista));
     personalRef.current = lista;
     setPersonalState(lista);
     setGuardadoOk(guardarPersonal(lista));
@@ -400,7 +412,11 @@ export default function App() {
         {tab === 'inicio' && <Inicio personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} />}
         {tab === 'ninos' && <Ninos />}
         {tab === 'control' && <Control personal={personal} setPersonal={setPersonal} nube={nube} avisar={setToast} />}
-        {tab === 'horario' && <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} />}
+        {horarioMontado && (
+          <div hidden={tab !== 'horario'}>
+            <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} activo={tab === 'horario'} />
+          </div>
+        )}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
         <div className="wrap" style={{ paddingBlock: '0 32px' }}>
           <p className="foot">

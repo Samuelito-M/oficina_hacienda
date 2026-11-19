@@ -47,7 +47,7 @@ ok(x.t.startsWith('Sí, **Myriam** trabaja el sábado 21 de noviembre en **Casa 
 x = await pregunta('y wendy el jueves?');
 ok(x.t.includes('Wendy') && x.t.includes('Casa 4'), 'seguimiento con otra persona y día: ' + x.t);
 x = await pregunta('quien descansa el jueves');
-ok(x.t.includes('No trabajan') && !x.t.includes('Myriam') && x.t.includes('De vacaciones: Marlene'), 'quién descansa y quién está de vacaciones: ' + x.t.slice(0, 200));
+ok(x.t.includes('No trabajan') && !x.t.includes('Myriam') && x.t.includes('De vacaciones o ausentes: Marlene'), 'quién descansa y quién está de vacaciones: ' + x.t.slice(0, 200));
 x = await pregunta('que casas necesitan cambio de casa');
 ok(x.t.includes('Casa 2') && !x.t.includes('Necesitan hoja de cambio de casa: **Casa 1') && x.r.botones[0].preparar === 'casas', 'cambio de casa: Casa 2 (no están Julián y Alejandra): ' + x.t);
 x = await pregunta('cuando cumple micaela');
@@ -98,7 +98,7 @@ ok(x.t === 'Yes, **Myriam** works on Saturday, November 21 in **Casa Esther**.',
 x = await ask('What days does Myriam work?');
 ok(x.t.includes('**Myriam** in November 2026: 4 days in houses, 1 weekend.') && x.t.includes('Fri 20 to Sun 22 · Casa Esther'), 'EN: days of a worker: ' + x.t);
 x = await ask('Who has the day off on Thursday?');
-ok(x.t.includes('Not working:') && x.t.includes('On vacation: Marlene.'), 'EN: day off and vacation');
+ok(x.t.includes('Not working:') && x.t.includes('On vacation or absent: Marlene.'), 'EN: day off and vacation');
 x = await ask('Which houses need a house change this weekend?');
 ok(x.t.includes('Need a house change sheet: **Casa 2**') && x.r.botones[0].t === 'Make the sheets', 'EN: house change');
 x = await ask("When is Mikaela's birthday?");
