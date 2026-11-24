@@ -713,3 +713,17 @@ body[data-tab="control"]{--accent:var(--c-ini);--accent-ink:var(--c-ini-ink);--a
 .ct-fila label{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted)}
 .ct-err{color:var(--bad);margin:0;font-size:14px}
 @media print{header,.foot,#asistente,.as-btn,.ct-form,.ct-acc,.ct-filtro{display:none!important}}
+.h-otro{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.h-otro .h-fila input{flex:1;min-width:140px}
+.h-otro .hint{margin:0;font-size:12.5px}
+.h-sem th.sig,.h-sem td.sig{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.025) 8px 16px)}
+.h-sem th.sig b{color:var(--muted)}
+.h-dia.sig{border-style:dashed;opacity:.92}
+.h-dia.sig .dh b{color:var(--muted)}
+.h-sems button.sig{border-style:dashed}
+.h-celda .n.otro,.qs .otro{font-style:italic}
+.h-continuar{display:flex;gap:10px;align-items:flex-start;margin:4px 0 10px;font-size:14px;cursor:pointer}
+.h-continuar input{margin-top:3px;width:18px;height:18px}
+.h-continuar small{display:block;color:var(--muted);font-size:12.5px}
+.as-ir.as-bajar{background:var(--surface);color:var(--ink);border:1.5px solid var(--accent)}
+.as-ir.as-bajar:hover{background:var(--accent);color:var(--on-accent)}

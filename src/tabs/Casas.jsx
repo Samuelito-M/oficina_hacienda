@@ -3,6 +3,7 @@ import Subir from '../components/Subir.jsx';
 import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import { SECCIONES } from '../lib/casas.js';
 import { claveFinde } from '../lib/seleccion.js';
+import { esOtro, nombreOtro } from '../lib/horarioApp.js';
 import { mesDe, mesHoy, trabajaEn } from '../lib/personal.js';
 import { fechaCorta, viernesADomingo } from '../lib/text.js';
 
@@ -22,7 +23,7 @@ export function hojasDelFinde(f, personal, marcas) {
     const estan = ids.filter((id) => padres.some((p) => p.id === id));
     const k = `${claveFinde(f)}|${casa}`;
     const marcada = k in marcas ? marcas[k] : estan.length === 0;
-    return { casa, k, ids, nombres: ids.map((id) => porId.get(id)?.nombre || id).join(' - '), estan: estan.map((id) => porId.get(id)?.nombre || id), padres, marcada, viernes: f.viernes, domingo: f.domingo };
+    return { casa, k, ids, nombres: ids.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)).join(' - '), estan: estan.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)), padres, marcada, viernes: f.viernes, domingo: f.domingo };
   });
 }
 

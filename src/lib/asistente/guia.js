@@ -16,10 +16,18 @@ export const GUIA = [
     tambien: ['armar', 'guardar']
   },
   {
+    id: 'continuar',
+    titulo: 'Completar la última semana con el mes siguiente',
+    claves: { completar: 2, semana: 2, siguiente: 3, continuacion: 3, continuar: 3, resto: 2, enero: 1, termina: 3, ultima: 2, sigue: 2 },
+    pasos: ['En **Horario**, abre el mes (ya armado).', 'Marca **Completar la semana con [el mes siguiente]**. Solo sale si el mes no termina en domingo.', 'Aparecen los días del mes siguiente hasta el domingo (por ejemplo del 1 al 3 de enero), en la última semana y en la vista Mes.', 'Toca **Completar lo que falta** para que la app los llene, o elige a mano. Si pones lo mismo todo el fin de semana, se pone en los dos meses.', 'Toca **Guardar horario**: esos días se guardan en el mes siguiente, así ya están cuando lo armes. También salen en el PDF y el Excel.', 'Si no lo quieres, desmárcalo. La app recuerda lo que elegiste.'],
+    ir: 'horario',
+    tambien: ['armar', 'descargar']
+  },
+  {
     id: 'cambiar',
     titulo: 'Cambiar a una persona en un día',
-    claves: { cambiar: 3, poner: 2, mover: 2, reemplazar: 3, quitar: 1, persona: 1, dia: 1, casa: 1, turno: 2, cubrir: 2, asignar: 2, elegir: 1 },
-    pasos: ['En **Horario**, toca la casa de ese día (en la vista **Semana** o **Mes**).', 'Marca o desmarca a las personas. Solo salen las que trabajan en esa casa.', 'Si es fin de semana, deja marcado **Poner lo mismo todo el fin de semana** para no repetirlo en cada día.', 'Toca **Listo** y después **Guardar horario** (o **Actualizar horario** si ya estaba guardado).'],
+    claves: { cambiar: 3, poner: 2, mover: 2, reemplazar: 3, quitar: 1, persona: 1, dia: 1, casa: 1, turno: 2, cubrir: 2, asignar: 2, elegir: 1, otro: 2, otra: 2, externo: 3, externa: 3, voluntario: 3, voluntaria: 3, escribir: 2, nombre: 1 },
+    pasos: ['En **Horario**, toca la casa de ese día (en la vista **Semana** o **Mes**).', 'Marca o desmarca a las personas. Solo salen las que trabajan en esa casa.', 'Si es alguien que no está en el personal (un voluntario, un reemplazo), toca **+ Otra persona**, escribe su nombre y toca **Agregar**. Sale ese día en el horario, el PDF y el Excel, pero no cuenta para acuerdos ni reglas.', 'Si es fin de semana, deja marcado **Poner lo mismo todo el fin de semana** para no repetirlo en cada día.', 'Toca **Listo** y después **Guardar horario** (o **Actualizar horario** si ya estaba guardado).'],
     ir: 'horario',
     tambien: ['guardar', 'trabajadores']
   },
@@ -220,12 +228,13 @@ export const GUIA = [
   }
 ];
 
-export const EJEMPLOS = ['¿Quién trabaja este fin de semana?', '¿Quién está de on call esta semana?', '¿Qué días trabaja Myriam este mes?', '¿Cuándo cumple Mikaela?', '¿Qué talla de zapatos tiene Ana?', '¿Cómo armo el horario?', '¿Cómo hago los acuerdos?', '¿Qué casas necesitan cambio de casa?'];
+export const EJEMPLOS = ['¿Quién trabaja este fin de semana?', '¿Cuántos fines de semana trabaja Myriam en diciembre?', 'Dame la lista de las niñas', 'Dame el horario de diciembre', '¿Quién está de on call esta semana?', '¿Qué días trabaja Myriam este mes?', '¿Cuándo cumple Mikaela?', '¿Qué talla de zapatos tiene Ana?', '¿Cómo armo el horario?', '¿Cómo hago los acuerdos?', '¿Qué casas necesitan cambio de casa?'];
 
 const EN = {
   armar: { titulo: 'Build the monthly schedule', pasos: ['Open the **Horario** (Schedule) tab.', 'Use the ‹ › arrows to pick the month.', 'First (step 1) tap **Poner vacaciones y feriados** (Add vacations and holidays) if there are any that month, so the app won’t place anyone on those days.', 'Tap **Armar el horario con las reglas** (Build with the rules). The app places everyone by the rules (weekends, days off and on call).', 'Check what is marked in green and change what you need by tapping each house.', 'At the end tap **Guardar horario** (Save schedule) at the bottom.'] },
   copiar: { titulo: "Copy last month's schedule", pasos: ['Open **Horario** and go to the new month with the ‹ › arrows.', 'Tap **Copiar el de** (Copy last month). It copies week by week and skips holidays.', 'Change what is different and tap **Guardar horario** (Save schedule).'] },
-  cambiar: { titulo: 'Change who works on a day', pasos: ['In **Horario**, tap the house on that day (in **Semana** week view or **Mes** month view).', 'Check or uncheck people. Only people who work in that house show up.', 'On weekends, leave **Poner lo mismo todo el fin de semana** (Same for the whole weekend) checked so you don’t repeat it each day.', 'Tap **Listo** (Done) and then **Guardar horario** (or **Actualizar horario** if it was already saved).'] },
+  continuar: { titulo: 'Complete the last week with the next month', pasos: ['In **Horario**, open the month (already built).', 'Check **Completar la semana con [next month]** (Complete the week with next month). It only shows if the month doesn’t end on a Sunday.', 'The next month’s days up to Sunday appear (for example January 1 to 3), in the last week and in the Month view.', 'Tap **Completar lo que falta** (Fill what’s missing) so the app fills them, or choose by hand. If you put the same for the whole weekend, it goes in both months.', 'Tap **Guardar horario** (Save): those days are saved in the next month, so they’re there when you build it. They also show in the PDF and Excel.', 'If you don’t want it, uncheck it. The app remembers your choice.'] },
+  cambiar: { titulo: 'Change who works on a day', pasos: ['In **Horario**, tap the house on that day (in **Semana** week view or **Mes** month view).', 'Check or uncheck people. Only people who work in that house show up.', 'If it’s someone who isn’t on the staff list (a volunteer, a substitute), tap **+ Otra persona** (Another person), type the name and tap **Agregar** (Add). They show that day in the schedule, the PDF and the Excel, but don’t count for agreements or rules.', 'On weekends, leave **Poner lo mismo todo el fin de semana** (Same for the whole weekend) checked so you don’t repeat it each day.', 'Tap **Listo** (Done) and then **Guardar horario** (or **Actualizar horario** if it was already saved).'] },
   guardar: { titulo: 'Save or update the schedule', pasos: ['When you change something in **Horario**, a bar appears at the bottom.', 'Tap **Guardar horario** (Save) or **Actualizar horario** (Update) if it was already saved. That way everyone sees it.', 'If you made a mistake, tap **Deshacer cambios** (Undo changes) to go back to the saved version.'] },
   descargar: { titulo: 'Download or print the schedule', pasos: ['In **Horario**, tap **Descargar** (Download).', 'Choose **PDF para imprimir** (the whole month on one page, with colors) or **Excel** (the usual format).', 'That same PDF or Excel works for Acuerdos and Cambio de casa.'] },
   borrar: { titulo: 'Delete the schedule and start over', pasos: ['In **Horario**, tap **Borrar** (Delete) at the top.', 'Tap **Sí, borrar** (Yes, delete) to confirm. The start screen comes back with **Armar con las reglas**, **Copiar el anterior** or **Empezar en blanco** (blank).', 'Vacations and holidays you already entered are kept.'] },
@@ -255,4 +264,4 @@ const EN = {
 };
 for (const a of GUIA) a.en = EN[a.id];
 
-export const EJEMPLOS_EN = ['Who works this weekend?', 'Who is on call this week?', 'What days does Myriam work this month?', "When is Mikaela's birthday?", "What's Ana's shoe size?", 'How do I build the schedule?', 'How do I make the agreements?', 'Which houses need a house change?'];
+export const EJEMPLOS_EN = ['Who works this weekend?', 'How many weekends does Myriam work in December?', 'Give me a list of the girls', 'Download the December schedule', 'Who is on call this week?', 'What days does Myriam work this month?', "When is Mikaela's birthday?", "What's Ana's shoe size?", 'How do I build the schedule?', 'How do I make the agreements?', 'Which houses need a house change?'];

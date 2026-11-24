@@ -85,6 +85,39 @@ export function normalizarConfig(c) {
 
 export const casasDe = (p) => (p && Array.isArray(p.casas) ? p.casas : []);
 export const esDeUnaCasa = (p, k) => !!p && p.rol === 'padre' && casasDe(p)[0] === k;
+export const OTRO = 'x:';
+export const MAX_OTRO = 40;
+export const esOtro = (id) => typeof id === 'string' && id.startsWith(OTRO);
+export function idOtro(nombre) {
+  const t = String(nombre || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_OTRO);
+  return t ? OTRO + t : '';
+}
+export const nombreOtro = (id) => id.slice(OTRO.length);
+export function nombreDeId(id, porId) {
+  if (esOtro(id)) return nombreOtro(id);
+  const v = porId && porId.get(id);
+  if (typeof v === 'string' && v) return v;
+  if (v && (v.n || v.nombre)) return v.n || v.nombre;
+  return id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+export function diasContinuacion(clave) {
+  const { anio, mes } = partesMes(clave);
+  const w = new Date(anio, mes + 1, 0).getDay();
+  return w === 0 ? [] : Array.from({ length: 7 - w }, (_, i) => i + 1);
+}
+
+export function soloDias(base, nuevo, dias) {
+  const out = { ...base, dias: { ...base.dias }, notas: { ...(base.notas || {}) } };
+  for (const d of dias) {
+    if (nuevo.dias[d]) out.dias[d] = nuevo.dias[d];
+    else delete out.dias[d];
+    if (nuevo.notas && nuevo.notas[d]) out.notas[d] = nuevo.notas[d];
+    else delete out.notas[d];
+  }
+  return out;
+}
+
 export const activo = (p, clave) => !!p && (!p.hasta || clave <= p.hasta);
 export const activos = (config, clave) => config.personal.filter((p) => activo(p, clave));
 
@@ -115,7 +148,11 @@ export function normalizarHorario(h) {
     for (const [d, v] of Object.entries(h.dias)) {
       if (!(+d >= 1 && +d <= 31) || !v || typeof v !== 'object') continue;
       const dia = {};
-      for (const k of PUESTOS) if (Array.isArray(v[k]) && v[k].length) dia[k] = Array.from(new Set(v[k].map(String)));
+      for (const k of PUESTOS) {
+        if (!Array.isArray(v[k])) continue;
+        const ids = Array.from(new Set(v[k].map(String).filter((x) => x && x.length <= MAX_OTRO + OTRO.length && (!esOtro(x) || x.length > OTRO.length))));
+        if (ids.length) dia[k] = ids;
+      }
       if (Object.keys(dia).length) out.dias[+d] = dia;
     }
   }
@@ -156,7 +193,7 @@ export function contexto(clave, horario, config) {
   const semanaDe = (d) => Math.floor((d - 1 + primer) / 7);
   const enVac = (id, d) => horario.vac.some((v) => v.id === id && d >= v.de && d <= v.a);
   const donde = (id, d) => CASAS.find((c) => en(horario, d, c).includes(id)) || '';
-  const nombre = (id) => (porId.get(id) ? porId.get(id).n : id.charAt(0).toUpperCase() + id.slice(1));
+  const nombre = (id) => nombreDeId(id, porId);
   const esPadre = (id) => porId.get(id)?.rol === 'padre';
   const viernesDe = (d) => d - ((wd(d) + 2) % 7);
   const findes = [];
@@ -239,7 +276,7 @@ export function problemas(ctx, semana = null) {
         if (vistos[id]) out.push({ tipo: 'doble', d, k: c, t: `${ctx.nombre(id)} está en ${vistos[id]} y en ${c} el ${cuando}` });
         vistos[id] = c;
         if (ctx.enVac(id, d)) out.push({ tipo: 'vac', d, k: c, t: `${ctx.nombre(id)} no está ese día (ausencia) el ${cuando}` });
-        if (!ctx.revisa) continue;
+        if (!ctx.revisa || esOtro(id)) continue;
         if (!activo(p, ctx.clave)) out.push({ tipo: 'fuera', d, k: c, t: `${ctx.nombre(id)} ya no trabaja y sale el ${cuando}` });
         else if (!casasDe(p).includes(c)) out.push({ tipo: 'regla', d, k: c, t: `${p.n} no va a ${c} y está ahí el ${cuando}` });
         else if (!p.dias.includes(ctx.wd(d))) out.push({ tipo: 'regla', d, k: c, t: p.rol === 'aux' && !ctx.finde(d) ? `${p.n} trabaja el ${cuando}, su día de descanso` : `${p.n} no trabaja los ${DIAS_LARGO[ctx.wd(d)]} y está el ${d}` });

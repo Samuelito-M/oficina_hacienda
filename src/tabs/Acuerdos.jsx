@@ -6,6 +6,7 @@ import Desconocidos from '../components/Desconocidos.jsx';
 import { acuerdosElegidos, claveFinde, estaElegido, listo, vistaPrevia } from '../lib/seleccion.js';
 import { finDeSemanaCorto, finDeSemanaLargo, MESES } from '../lib/text.js';
 import { cedulaValida, fijoEn, mesDe } from '../lib/personal.js';
+import { esOtro, nombreOtro } from '../lib/horarioApp.js';
 
 const OK = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -222,7 +223,7 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                           <div className="chips">
                             {f.call.map((id) => (
                               <span key={id} className="chip call">
-                                {porId.get(id)?.nombre || id} · no lleva acuerdo
+                                {porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)} · {esOtro(id) ? 'no es del personal' : 'no lleva acuerdo'}
                               </span>
                             ))}
                           </div>

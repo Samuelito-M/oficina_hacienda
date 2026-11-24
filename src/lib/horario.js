@@ -163,8 +163,10 @@ export function analizarHorario({ items }, personal, nombreArchivo) {
   const numeros = items.filter((i) => /^\d{1,2}$/.test(i.str.trim())).map((i) => ({ ...i, n: +i.str.trim() }));
   if (numeros.length < 20) throw new HorarioError('No encontré los números de los días. ¿Seguro que es el horario mensual?');
 
-  const filasG = agrupar(numeros.map((n) => ({ v: n.y, n })), 25);
-  const filas = filasG.map((g) => ({ y: g.min, nums: g.items.map((o) => o.n) }));
+  const marcas = items.filter((i) => /^\d{1,2}\s+[a-záéíóúñ]{3}\.?$/i.test(i.str.trim())).map((i) => ({ ...i, n: 0, marca: true }));
+  const filasG = agrupar([...numeros, ...marcas].map((n) => ({ v: n.y, n })), 25);
+  const filas = filasG.map((g) => ({ y: g.min, nums: g.items.map((o) => o.n).filter((o) => !o.marca) }));
+  const ultimaReal = filas.reduce((u, f, i) => (f.nums.length ? i : u), 0);
   const colsG = agrupar(numeros.map((n) => ({ v: n.x, n })), 40).filter((g) => g.items.length >= 3);
   if (colsG.length < 5) throw new HorarioError('No pude reconocer las columnas del calendario.');
   const cols = colsG.map((g) => ({ x: Math.min(...g.items.map((o) => o.n.x)), nums: g.items.map((o) => o.n) }));
@@ -173,7 +175,7 @@ export function analizarHorario({ items }, personal, nombreArchivo) {
     const votos = new Array(7).fill(0);
     for (const n of c.nums) {
       const fi = filas.findIndex((f) => f.nums.includes(n));
-      if (fi <= 0 || fi >= filas.length - 1) continue;
+      if (fi <= 0 || fi >= ultimaReal) continue;
       if (n.n < 1 || n.n > diasDelMes) continue;
       votos[new Date(anio, mes, n.n).getDay()]++;
     }
@@ -198,7 +200,7 @@ export function analizarHorario({ items }, personal, nombreArchivo) {
       const fecha = new Date(anio, mes, n.n);
       if (fecha.getDay() !== col.dow) continue;
       if (fi === 0 && n.n > 20) continue;
-      if (fi === filas.length - 1 && n.n < 8 && filas.length > 4) continue;
+      if (fi === ultimaReal && n.n < 8 && filas.length > 4) continue;
       if (celdas.has(n.n)) continue;
       celdas.set(n.n, { x0: col.x0, x1: col.x1, y0, y1, numero: n });
     }

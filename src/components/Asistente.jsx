@@ -7,6 +7,12 @@ import { EJEMPLOS, EJEMPLOS_EN } from '../lib/asistente/guia.js';
 import { plano, idioma as detectar } from '../lib/asistente/texto.js';
 import { normalizarConfig } from '../lib/horarioApp.js';
 import { COLOR_PUESTO } from '../lib/horarioApp.js';
+import JSZip from 'jszip';
+import * as PDFLib from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import { cargarRecursos } from '../lib/recursos.js';
+import { descargar } from '../lib/archivos.js';
+import { crearDescarga } from '../lib/asistente/descargas.js';
 
 const PARECE_DATO = /\b(quien|quienes|cumple|talla|tallas|zapatos|ropa|oncall|descansa|trabaja|trabajan|edad|anos tiene|ninos hay|cambiocasa)\b/;
 const VIGENCIA = 60000;
@@ -55,8 +61,8 @@ function Respuesta({ r, onBoton, onPregunta }) {
       {r.botones && r.botones.length > 0 && (
         <div className="as-botones">
           {r.botones.map((b, i) => (
-            <button key={i} type="button" className="as-ir" onClick={() => onBoton(b)}>
-              {b.t} →
+            <button key={i} type="button" className={`as-ir${b.descarga ? ' as-bajar' : ''}`} onClick={() => onBoton(b)}>
+              {b.descarga ? `⬇ ${b.t}` : `${b.t} →`}
             </button>
           ))}
         </div>
@@ -92,7 +98,7 @@ function idiomaInicial() {
 
 const BIENVENIDA = { de: 'bot', bienvenida: true };
 
-export default function Asistente({ personal, onHorarioApp, irAHorario }) {
+export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, tab }) {
   const [abierto, setAbierto] = useState(false);
   const [lang, setLangState] = useState(idiomaInicial);
   const L = UI[lang];
@@ -152,6 +158,8 @@ export default function Asistente({ personal, onHorarioApp, irAHorario }) {
   };
 
   const horario = async (mes) => {
+    const vv = vivo && vivo.current;
+    if (vv && vv.clave === mes && vv.horario) return { horario: vv.horario, config: vv.config, vivo: true, sinGuardar: !!vv.sinGuardar };
     const g = cache.current.horarios.get(mes);
     if (g && Date.now() - g.t < VIGENCIA) return g.v;
     const r = await api({ accion: 'horario', mes });
@@ -207,7 +215,8 @@ export default function Asistente({ personal, onHorarioApp, irAHorario }) {
         return;
       }
       const ninos = nombres.ninos || [];
-      const r = await responder(e, { hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])) });
+      const mesActivo = tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null;
+      const r = await responder(e, { hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])), mesActivo });
       if (e.tipo !== 'no_entendi') contexto.current = e;
       if (r) setMensajes((m) => [...m, { de: 'bot', r }]);
     } catch (err) {
@@ -221,7 +230,24 @@ export default function Asistente({ personal, onHorarioApp, irAHorario }) {
     }
   };
 
+  const [bajando, setBajando] = useState(false);
+  const bajar = async (d) => {
+    if (bajando) return;
+    setBajando(true);
+    try {
+      const f = await crearDescarga(d, { cargarNinos, horario, personal: personalRef.current, libs: { JSZip, PDFLib, fontkit, cargarRecursos } });
+      descargar(f.bytes, f.nombre, f.mime);
+      setMensajes((m) => [...m, { de: 'bot', r: { partes: [{ p: lang === 'en' ? `Done: **${f.nombre}** is in your Downloads folder.` : `Listo: **${f.nombre}** está en tu carpeta de Descargas.` }] } }]);
+    } catch (err) {
+      console.error(err);
+      setMensajes((m) => [...m, { de: 'bot', r: { partes: [{ p: lang === 'en' ? 'I couldn’t make the file. Please try again.' : 'No pude armar el archivo. Intenta otra vez.' }] } }]);
+    } finally {
+      setBajando(false);
+    }
+  };
+
   const boton = (b) => {
+    if (b.descarga) return bajar(b.descarga);
     if (b.preparar) {
       onHorarioApp(b.clave, b.horario, b.config);
       location.hash = `#${b.preparar}`;

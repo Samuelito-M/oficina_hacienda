@@ -96,7 +96,10 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
 
   const exacto = GUIA.find((a) => plano(a.titulo) === s || (a.en && plano(a.en.titulo) === s));
   if (exacto) return { tipo: 'guia', articulo: exacto, otros: [] };
-  const fechas = leerFechas(texto, hoy, idioma);
+  let fechas = leerFechas(texto, hoy, idioma);
+  if (/\bcuant|\bhow many\b/i.test(plano(texto)) && /\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/i.test(String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+    fechas = leerFechas(String(texto).replace(/\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/gi, ' '), hoy, idioma);
+  }
   const casa = leerCasa(texto);
   const trab = buscarNombres(texto, trabajadores, 'n');
   const nin = buscarNombres(texto, ninos, 'nombre');
@@ -125,10 +128,25 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   })();
   const hayCasaDe = /\b(en )?que casa\b|\bde que casa\b|\bdonde (esta|vive)\b/.test(s);
 
-  const conIntencion = hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
+  const palabraNinos = /\b(ninos|ninas|nina|chicos|chicas|varones|nenas|nenes|mujercitas)\b/.test(s);
+  const crudo = String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const sexo = /\b(ninas|nina|chicas|nenas|mujeres|mujercitas|girls?)\b/.test(crudo) ? 'F' : /\b(varones|varon|varoncitos|nenes|hombres|hombrecitos|boys?)\b/.test(crudo) ? 'M' : '';
+  const pideLista = tiene(ps, 'lista', 'listado', 'nombres', 'descargar', 'descarga', 'bajar', 'excel', 'pdf', 'dame', 'damelos', 'pasame', 'manda', 'mandame', 'todos', 'todas', 'cuales', 'quienes', 'imprimir', 'muestrame', 'ensename', 'ver') || /\b(cuantas|cuantos)\b/.test(s);
+  const edadMin = (s.match(/\bmayores de (\d{1,2})\b/) || s.match(/\b(?:older than|over) (\d{1,2})\b/) || [])[1];
+  const edadMax = (s.match(/\bmenores de (\d{1,2})\b/) || s.match(/\b(?:younger than|under) (\d{1,2})\b/) || [])[1];
+  const hayListaNinos = palabraNinos && (pideLista || !!sexo || edadMin || edadMax) && !hayTalla && !hayCumple && !nin.length && (!!sexo || !!edadMin || !!edadMax || tiene(ps, 'lista', 'listado', 'descargar', 'descarga', 'excel', 'pdf', 'bajar', 'imprimir', 'nombres', 'todos', 'todas', 'cuales', 'quienes'));
+  const palabraPersonal = /\b(personal|trabajadores|trabajadoras|empleados|auxiliares|padresdecasa|padres de casa|staff)\b/.test(s);
+  const hayListaPersonal = palabraPersonal && !tiene(ps, 'agregar', 'agrego', 'pongo', 'poner', 'anadir', 'anado', 'meto', 'quitar', 'quito', 'cambiar', 'cambio') && tiene(ps, 'lista', 'listado', 'nombres', 'descargar', 'descarga', 'excel', 'bajar', 'dame', 'quienes', 'cuales', 'todos', 'muestrame', 'pasame', 'imprimir') && !trab.length;
+  const rolPedido = /\bpadresdecasa\b|\bpadres de casa\b|\bpadres\b/.test(s) ? 'padre' : /\bauxiliares\b/.test(s) ? 'aux' : '';
+  const hayDescargaHorario = /\bhorario\b/.test(s) && tiene(ps, 'descargar', 'descarga', 'bajar', 'pdf', 'excel', 'imprimir', 'dame', 'mandame', 'pasame', 'manda', 'archivo') && !trab.length;
+  const hayFinde = tiene(ps, 'finde', 'findes', 'fines');
+  const conIntencion = hayListaNinos || hayListaPersonal || hayDescargaHorario || hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
   const seguir = seguimiento(contexto, s, sinVacias, conIntencion, ent);
   if (seguir) return seguir;
 
+  if (!como && hayDescargaHorario) return r('horario_descarga');
+  if (!como && hayListaNinos) return r('lista_ninos', { sexo, edadMin: edadMin != null ? +edadMin : null, edadMax: edadMax != null ? +edadMax : null });
+  if (!como && hayListaPersonal) return r('lista_personal', { rol: rolPedido });
   if (!como || nin.length || trab.length) {
     if (hayTalla && nin.length) return r('talla_nino', { prenda: tiene(ps, 'zapatos') && !tiene(ps, 'ropa') ? 'zapatos' : tiene(ps, 'ropa') && !tiene(ps, 'zapatos') ? 'ropa' : 'ambas' });
     if ((hayCumple || hayEdad) && nin.length) return r(hayEdad && !hayCumple ? 'edad_nino' : 'cumple_nino');
@@ -142,7 +160,7 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
     if (hayDescanso && !como && !trab.length) return r('descansan');
     if (hayNinosCasa) return r('ninos_casa');
     if (hayEstadoHorario) return r('estado_horario');
-    if (trab.length && (hayTrabajo || hayDescanso || fechas || casa || !nin.length) && !como) return r('dias_persona');
+    if (trab.length && (hayTrabajo || hayDescanso || fechas || casa || !nin.length) && !como) return r('dias_persona', { soloFindes: hayFinde });
     if (hayTrabajo && (fechas || casa) && !como) return r('quien_trabaja');
     if (/\b(quien|quienes)\b/.test(s) && (fechas || casa) && !como) return r('quien_trabaja');
     if (nin.length && !como && !trab.length) return r('nino_info');

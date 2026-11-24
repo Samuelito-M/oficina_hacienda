@@ -57,6 +57,7 @@ export async function leerGrillaExcel(data, JSZip) {
 }
 
 const NUMERO = /^(?:[a-z]+\s+)?(\d{1,2})(?:\.0+)?$/;
+const OTRO_MES = /^(?:feriado\s+)?\d{1,2}\s+[a-z]{3}\.?$/;
 
 function mesDe(hojas, nombreArchivo) {
   const re = new RegExp(`\\b(${MESES.join('|')}|setiembre)\\b\\D{0,12}(20\\d\\d)`);
@@ -85,23 +86,26 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
     const numFilas = h.filas
       .map((f) => {
         const nums = {};
+        let marcas = 0;
         for (const [c, v] of Object.entries(f.celdas)) {
+          if (OTRO_MES.test(fold(v).trim())) marcas++;
           const m = fold(v).trim().match(NUMERO);
           if (m && +m[1] >= 1 && +m[1] <= 31) {
             nums[c] = +m[1];
             if (/^feriado/.test(fold(v).trim())) (feriadoEn[f.r] = feriadoEn[f.r] || {})[c] = true;
           }
         }
-        return { r: f.r, nums, n: Object.keys(nums).length };
+        return { r: f.r, nums, n: Object.keys(nums).length, marcas };
       })
-      .filter((x) => x.n >= 2 || (x.n >= 1 && Object.keys(h.filas.find((f) => f.r === x.r).celdas).length === x.n));
+      .filter((x) => x.n >= 2 || (x.n >= 1 && Object.keys(h.filas.find((f) => f.r === x.r).celdas).length === x.n + x.marcas) || (x.n === 0 && x.marcas >= 1));
     if (!mejor || numFilas.length > mejor.numFilas.length) mejor = { h, numFilas };
   }
   if (!mejor || mejor.numFilas.length < 4) throw new HorarioError('No encontré las filas con los números de los días en el Excel.');
   const { h, numFilas } = mejor;
   const votos = {};
+  const ultimaReal = numFilas.reduce((u, nf, i) => (nf.n ? i : u), 0);
   numFilas.forEach((nf, i) => {
-    if (i === 0 || i === numFilas.length - 1) return;
+    if (i === 0 || i >= ultimaReal) return;
     for (const [c, d] of Object.entries(nf.nums)) {
       if (d > diasDelMes) continue;
       votos[c] = votos[c] || new Array(7).fill(0);
@@ -123,7 +127,7 @@ export function analizarHorarioExcel(hojas, personal, nombreArchivo) {
       if (d > diasDelMes) continue;
       if (dowDe[c] !== undefined && new Date(anio, mes, d).getDay() !== dowDe[c]) continue;
       if (i === 0 && d > 20) continue;
-      if (i === numFilas.length - 1 && d < 8 && numFilas.length > 4) continue;
+      if (i === ultimaReal && d < 8 && numFilas.length > 4) continue;
       if (dias[d]) continue;
       if (feriadoEn[nf.r] && feriadoEn[nf.r][c]) feriados.push(d);
       const lineas = [];

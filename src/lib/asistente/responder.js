@@ -1,4 +1,4 @@
-import { ON_CALL, en, activos, normalizarConfig, normalizarHorario, contexto, problemas } from '../horarioApp.js';
+import { ON_CALL, en, activos, normalizarConfig, normalizarHorario, contexto, problemas, esOtro, nombreOtro } from '../horarioApp.js';
 import { trabajaEn } from '../personal.js';
 import { edad, proximoCumple } from '../ninos.js';
 import { tallaDe } from '../tallas.js';
@@ -7,6 +7,7 @@ import { DIAS_BONITO, DIAS_EN, MESES_P, MESES_EN, fechaBonita, claveDe, finDeSem
 import { CASAS } from './entender.js';
 import { respuestaAusencias } from './ausenciasChat.js';
 import { ausenciasDeMes } from '../ausencias.js';
+import { findesDePersona, listaNinos, listaPersonal, descargarHorario } from './datosChat.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
 const mayus = (s) => s[0].toUpperCase() + s.slice(1);
@@ -112,7 +113,7 @@ function textos(lang) {
   };
 }
 
-export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen']);
+export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga']);
 
 async function horariosDe(fechas, datos) {
   const meses = Array.from(new Set(fechas.map(claveDe)));
@@ -129,7 +130,7 @@ async function horariosDe(fechas, datos) {
 function nombrador(datos, config) {
   const cfg = new Map((config ? config.personal : []).map((p) => [p.id, p.n]));
   const per = new Map((datos.personal || []).map((p) => [p.id, p.nombre]));
-  return (id) => cfg.get(id) || per.get(id) || id;
+  return (id) => (esOtro(id) ? nombreOtro(id) : cfg.get(id) || per.get(id) || id);
 }
 
 const sinHorario = (T, meses) => ({ partes: [{ p: T.sinHorario(meses.map(T.mes)) }], botones: [ir('horario', T.irHorario, { mes: meses[0] })] });
@@ -254,7 +255,7 @@ async function diasPersona(e, datos, T) {
   const hoy = datos.hoy;
   if (e.trabajadores.length > 1) return { partes: [{ p: T.aQuien(e.trabajadores.map((p) => p.n)) }], sugerencias: e.trabajadores.map((p) => T.diasDe(p.n)) };
   const p = e.trabajadores[0];
-  const f = e.fechas || { tipo: 'mes', mes: claveDe(hoy), texto: 'este mes' };
+  const f = e.fechas || { tipo: 'mes', mes: datos.mesActivo || claveDe(hoy), texto: 'este mes' };
   const dias = f.tipo === 'mes' ? diasDelMes(f.mes) : f.fechas;
   const hs = await horariosDe(dias, datos);
   if (Object.values(hs).every((x) => !x)) return sinHorario(T, Object.keys(hs));
@@ -273,6 +274,7 @@ async function diasPersona(e, datos, T) {
     return { partes: [{ p: x ? T.siTrabaja(p.n, cuando, x.k === ON_CALL ? 'On call' : x.k) : vacs.length ? T.noTrabajaVac(p.n) : T.noTrabaja(p.n, cuando) }], botones: boton, sugerencias: [T.diasDeMes(p.n)] };
   }
   const titulo = f.tipo === 'mes' ? T.tituloMes(f.mes) : textoRango(f, T) || T.esosDias;
+  if (e.soloFindes) return findesDePersona(p, lista, titulo, T, claveDe(dias[0]));
   if (!lista.length) return { partes: [{ p: T.sinDias(p.n, titulo) }, ...(vacs.length ? [{ p: T.vacDel(vacs[0], vacs[vacs.length - 1]) }] : [])], botones: boton };
   const casasD = lista.filter((x) => x.k !== ON_CALL);
   const findes = new Set(casasD.filter((x) => [5, 6, 0].includes(x.d.getDay())).map((x) => claveDe(x.d) + ':' + finDeSemana(x.d)[0].getDate()));
@@ -398,7 +400,7 @@ async function ninosCasa(e, datos, T) {
 
 async function estadoHorario(e, datos, T) {
   const hoy = datos.hoy;
-  const mes = e.fechas && e.fechas.mes ? e.fechas.mes : e.fechas && e.fechas.fechas ? claveDe(e.fechas.fechas[0]) : claveDe(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1));
+  const mes = e.fechas && e.fechas.mes ? e.fechas.mes : e.fechas && e.fechas.fechas ? claveDe(e.fechas.fechas[0]) : datos.mesActivo || claveDe(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1));
   const r = await datos.horario(mes);
   const h = r && normalizarHorario(r.horario);
   if (!h || !Object.keys(h.dias).length) return { partes: [{ p: T.noHecho(mes) }], botones: [ir('horario', T.hacerEl(mes), { mes })] };
@@ -452,6 +454,12 @@ export async function responder(e, datos) {
       return ninosCasa(e, datos, T);
     case 'estado_horario':
       return estadoHorario(e, datos, T);
+    case 'lista_ninos':
+      return listaNinos(e, datos, T);
+    case 'lista_personal':
+      return listaPersonal(e, datos, T);
+    case 'horario_descarga':
+      return descargarHorario(e, datos, T);
     case 'aus_persona':
     case 'aus_ahora':
     case 'aus_resumen':

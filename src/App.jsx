@@ -26,7 +26,7 @@ import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.23';
+const VERSION = '1.24';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -60,6 +60,7 @@ export default function App() {
   const [guardadoOk, setGuardadoOk] = useState(true);
   const [horConfig, setHorConfig] = useState(null);
   const [mesHorario, setMesHorario] = useState(null);
+  const vivoRef = useRef(null);
   const [horarioMontado, setHorarioMontado] = useState(() => leerTab() === 'horario');
 
   useEffect(() => {
@@ -414,7 +415,7 @@ export default function App() {
         {tab === 'control' && <Control personal={personal} setPersonal={setPersonal} nube={nube} avisar={setToast} />}
         {horarioMontado && (
           <div hidden={tab !== 'horario'}>
-            <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} activo={tab === 'horario'} />
+            <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} activo={tab === 'horario'} onVivo={(v) => (vivoRef.current = v)} />
           </div>
         )}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
@@ -428,7 +429,7 @@ export default function App() {
           </p>
         </div>
       </main>
-      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} />
+      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario}  vivo={vivoRef} tab={tab} />
       {toast && (
         <div className="toast" role="status">
           {toast}

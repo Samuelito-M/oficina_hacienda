@@ -1,5 +1,5 @@
 import { CASAS, fijoEn, mesDe, sumarMes, trabajaEn, nombreMes } from './personal.js';
-import { ON_CALL, contexto, normalizarConfig, normalizarHorario, problemas, en } from './horarioApp.js';
+import { ON_CALL, contexto, normalizarConfig, normalizarHorario, problemas, en, esOtro, nombreOtro } from './horarioApp.js';
 import { listo } from './seleccion.js';
 
 const DIA = 86400000;
@@ -44,7 +44,7 @@ export function resumenInicio({ hoy, mes, horario, horarioSiguiente, config, per
   };
   const porIdCfg = new Map(cfg.personal.map((p) => [p.id, p.n]));
   const porIdPer = new Map(personal.map((p) => [p.id, p]));
-  const nombre = (id) => (porIdPer.get(id) && porIdPer.get(id).nombre) || porIdCfg.get(id) || id;
+  const nombre = (id) => (esOtro(id) ? nombreOtro(id) : (porIdPer.get(id) && porIdPer.get(id).nombre) || porIdCfg.get(id) || id);
 
   const fs = finDeSemana(hoy);
   const dias = [fs.viernes, fs.sabado, fs.domingo];
@@ -66,7 +66,7 @@ export function resumenInicio({ hoy, mes, horario, horarioSiguiente, config, per
   for (const f of dias) {
     for (const casa of CASAS) {
       for (const id of ids(f, casa)) {
-        if (vistos.has(id)) continue;
+        if (vistos.has(id) || esOtro(id)) continue;
         vistos.add(id);
         const p = porIdPer.get(id);
         acuerdos.push({ id, nombre: nombre(id), fijo: !!p && fijoEn(p, mesFinde), sinCedula: !p || !listo(p) });

@@ -52,10 +52,17 @@ import {
   ponerObs,
   MAX_NOTA,
   MAX_OBS,
-  TODOS_FINDES
+  TODOS_FINDES,
+  esOtro,
+  idOtro,
+  nombreOtro,
+  MAX_OTRO,
+  diasContinuacion,
+  soloDias
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const K_CONTINUAR = 'oficina-hacienda.horario.continuar';
 const nombreMes = (clave) => {
   const { anio, mes } = partesMes(clave);
   return `${Cap(MESES[mes])} ${anio}`;
@@ -88,7 +95,22 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
   const gente = todos.filter((p) => deAqui(p) || actuales.includes(p.id));
   const ocultos = todos.length - gente.length;
   const lista = gente.map((p) => ({ p, m: actuales.includes(p.id) ? '' : ctx.motivo(p.id, d, k) }));
-  const extra = actuales.filter((id) => !gente.some((p) => p.id === id)).map((id) => ({ p: { id, n: ctx.nombre(id) }, m: '' }));
+  const [otro, setOtro] = useState('');
+  const [verOtro, setVerOtro] = useState(false);
+  const [agregados, setAgregados] = useState([]);
+  const usadosOtros = Array.from(new Set(Object.values(ctx.horario.dias).flatMap((x) => Object.values(x).flat()).filter(esOtro)));
+  const externos = Array.from(new Set([...actuales.filter((id) => !gente.some((p) => p.id === id)), ...usadosOtros, ...agregados]));
+  const extra = externos.map((id) => ({ p: { id, n: ctx.nombre(id) }, m: '' }));
+  const agregarOtro = () => {
+    const id = idOtro(otro);
+    if (!id) return;
+    const ya = todos.find((p) => p.n.toLowerCase() === nombreOtro(id).toLowerCase());
+    const final = ya ? ya.id : id;
+    setSel((s) => (s.includes(final) ? s : [...s, final]));
+    if (!ya) setAgregados((a) => (a.includes(id) ? a : [...a, id]));
+    setOtro('');
+    setVerOtro(false);
+  };
   const si = [...extra, ...lista.filter((x) => !x.m)].sort((a, b) => actuales.includes(b.p.id) - actuales.includes(a.p.id) || esDeUnaCasa(b.p, k) - esDeUnaCasa(a.p, k) || (b.p.pref === k) - (a.p.pref === k) || a.p.n.localeCompare(b.p.n, 'es'));
   const no = lista.filter((x) => x.m).sort((a, b) => a.p.n.localeCompare(b.p.n, 'es'));
   const R = ctx.config.reglas;
@@ -97,7 +119,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
     <label key={p.id}>
       <input type="checkbox" checked={sel.includes(p.id)} onChange={(e) => setSel((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
       <span>{p.n}</span>
-      <span className="r">{m || (esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : p.id && ctx.porId.get(p.id) && !deAqui(ctx.porId.get(p.id)) ? (k === ON_CALL ? 'no hace on call' : `no va a ${k}`) : '')}</span>
+      <span className="r">{m || (esOtro(p.id) ? 'no es del personal' : esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : p.id && ctx.porId.get(p.id) && !deAqui(ctx.porId.get(p.id)) ? (k === ON_CALL ? 'no hace on call' : `no va a ${k}`) : '')}</span>
     </label>
   );
   const abiertoNo = verNo || !si.length;
@@ -121,6 +143,39 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
           Solo salen {k === ON_CALL ? 'las personas que hacen on call' : `las personas que trabajan en ${k}`}. Para cambiar a dónde va cada uno, abre “Personal y reglas”.
         </p>
       )}
+      <div className="h-otro">
+        {verOtro ? (
+          <div className="h-fila">
+            <input
+              id="h-otro-nombre"
+              type="text"
+              autoFocus
+              maxLength={MAX_OTRO}
+              value={otro}
+              placeholder="Nombre de la persona"
+              aria-label="Nombre de otra persona"
+              onChange={(e) => setOtro(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  agregarOtro();
+                }
+              }}
+            />
+            <button type="button" className="h-btn prim" id="h-otro-ok" onClick={agregarOtro} disabled={!otro.trim()}>
+              Agregar
+            </button>
+            <button type="button" className="h-btn" onClick={() => setVerOtro(false)}>
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="btn-link" id="h-otro" onClick={() => setVerOtro(true)}>
+            + Otra persona (escribir el nombre)
+          </button>
+        )}
+        <p className="hint">Para alguien que no está en el personal, solo para este día. No cuenta para acuerdos ni reglas.</p>
+      </div>
       {conBloque && (
         <label className="h-toda">
           <input type="checkbox" id="h-todo-bloque" checked={toda} onChange={(e) => setToda(e.target.checked)} />
@@ -554,7 +609,7 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true }) {
+export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true, onVivo }) {
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
@@ -584,6 +639,31 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   const vacMes = useMemo(() => ausenciasDeMes(personal, clave), [personal, clave]);
   const horario = useMemo(() => (horarioCrudo ? { ...horarioCrudo, vac: vacMes } : null), [horarioCrudo, vacMes]);
   const base = useMemo(() => ({ fer: baseCruda.fer, vac: vacMes }), [baseCruda, vacMes]);
+  const [continuar, setContinuarEstado] = useState(() => {
+    try {
+      return localStorage.getItem(K_CONTINUAR) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setContinuar = (v) => {
+    setContinuarEstado(v);
+    try {
+      localStorage.setItem(K_CONTINUAR, v ? '1' : '0');
+    } catch {
+      return;
+    }
+  };
+  const claveSig = moverMes(clave, 1);
+  const diasSig = useMemo(() => diasContinuacion(clave), [clave]);
+  const [sigTodo, setSigTodo] = useState(null);
+  const sigActual = sigTodo && sigTodo.de === clave ? sigTodo : null;
+  const sigCrudo = sigActual ? sigActual.h : null;
+  const setSig = (h) => setSigTodo((x) => (x && x.de === claveRef.current ? { ...x, h } : x));
+  const vacSig = useMemo(() => ausenciasDeMes(personal, claveSig), [personal, claveSig]);
+  const sigH = useMemo(() => (sigCrudo ? { ...sigCrudo, vac: vacSig } : null), [sigCrudo, vacSig]);
+  const sigSucio = !!sigActual && firma(sigActual.h) !== sigActual.guardado;
+  const sigCargando = useRef('');
 
   const salir = (err) => {
     borrarSesion();
@@ -634,7 +714,37 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     if (con.token) cargar(clave);
   }, [con.token, clave]);
 
-  const sucio = horarioCrudo != null && firma(horarioCrudo) !== guardado;
+  const cargarSig = async (cual) => {
+    const sc = moverMes(cual, 1);
+    sigCargando.current = cual;
+    try {
+      const c = conRef.current;
+      const r = await llamar(c.url, { accion: 'horario', mes: sc, token: c.token });
+      if (cual !== claveRef.current) return;
+      const h = normalizarHorario(r.datos && r.datos.horario) || horarioVacio();
+      setSigTodo({ de: cual, h, guardado: firma(h), existe: !!(r.datos && r.datos.horario) });
+    } catch (err) {
+      if (cual !== claveRef.current) return;
+      if (err.codigo === 'sesion') return salir(err);
+      avisar(`No se pudo cargar ${soloMes(sc)} para completar la semana. Revisa tu internet.`);
+    } finally {
+      if (sigCargando.current === cual) sigCargando.current = '';
+    }
+  };
+
+  useEffect(() => {
+    if (!continuar || !diasSig.length || !con.token || estado !== 'listo') return;
+    if (sigTodo && sigTodo.de === clave) return;
+    if (sigCargando.current === clave) return;
+    cargarSig(clave);
+  }, [continuar, clave, estado, con.token, sigTodo]);
+
+  const sucioMes = horarioCrudo != null && firma(horarioCrudo) !== guardado;
+  const sucio = sucioMes || sigSucio;
+
+  useEffect(() => {
+    if (onVivo) onVivo(estado === 'listo' ? { clave, horario, config, sinGuardar: sucioMes } : { clave, horario: null, config });
+  }, [clave, horario, config, sucioMes, estado]);
 
   const yaActivo = useRef(activo);
   useEffect(() => {
@@ -680,8 +790,43 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   }, [sucio]);
 
   const ctx = useMemo(() => contexto(clave, horario || { ...horarioVacio(), ...base }, config), [clave, horario, config, base]);
+  const verSig = continuar && diasSig.length > 0 && !!sigH && !!horario;
+  const sigCtx = useMemo(() => (sigH ? contexto(claveSig, sigH, config) : null), [sigH, claveSig, config]);
+  const mesSig = MESES[partesMes(claveSig).mes];
+  const sigProblemas = useMemo(
+    () => (verSig && sigCtx.revisa ? problemas(sigCtx).filter((p) => diasSig.includes(p.d) && ['falta', 'doble', 'vac'].includes(p.tipo)).map((p) => ({ ...p, t: `${p.t} de ${mesSig}`, sig: true })) : []),
+    [verSig, sigCtx, diasSig, mesSig]
+  );
   const todos = useMemo(() => (horario ? problemas(ctx) : []), [ctx, horario]);
-  const faltas = todos.filter((p) => p.tipo === 'falta').length;
+  const faltas = todos.filter((p) => p.tipo === 'falta').length + sigProblemas.filter((p) => p.tipo === 'falta').length;
+  const cruce = useMemo(() => {
+    if (!verSig) return null;
+    const w = ctx.wd(ctx.n);
+    if (w !== 5 && w !== 6) return null;
+    const fin = [];
+    for (let x = ctx.n; x >= 1 && ctx.finde(x) && ctx.wd(x) !== 0; x--) fin.unshift(x);
+    return { fin, ini: diasSig.filter((d) => sigCtx.finde(d)) };
+  }, [verSig, ctx, sigCtx, diasSig]);
+  const filas = useMemo(() => {
+    const out = [];
+    for (let s = 0; s < ctx.semanas; s++) {
+      const fila = new Array(7).fill(null);
+      for (const d of diasDeSemana(ctx, s)) fila[ctx.wd(d)] = { sig: false, d };
+      out.push(fila);
+    }
+    if (verSig) {
+      let fila = out[out.length - 1];
+      for (const d of diasSig) {
+        const w = sigCtx.wd(d);
+        if (w === 0) {
+          fila = new Array(7).fill(null);
+          out.push(fila);
+        }
+        fila[w] = { sig: true, d };
+      }
+    }
+    return out;
+  }, [ctx, verSig, sigCtx, diasSig]);
 
   const guardarConfig = async (cfg) => {
     if (J(cfg) === configGuardada) return;
@@ -701,6 +846,11 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       const r = await llamar(con.url, { accion: 'guardarHorario', mes: clave, horario, token: con.token });
       await guardarConfig(config);
       setGuardado(firma(horario));
+      if (sigSucio && sigH) {
+        await llamar(con.url, { accion: 'guardarHorario', mes: claveSig, horario: sigH, token: con.token });
+        const g = firma(sigH);
+        setSigTodo((x) => (x && x.de === clave ? { ...x, guardado: g, existe: true } : x));
+      }
       setActualizado(r.actualizado || new Date().toISOString());
       setNuevos([]);
       setNotas([]);
@@ -716,6 +866,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   const deshacer = () => {
     const g = guardado ? JSON.parse(guardado) : null;
     setHorario(estaVacio(g) ? null : g);
+    setSigTodo((x) => (x && x.de === clave ? { ...x, h: JSON.parse(x.guardado) } : x));
     setNuevos([]);
     setNotas([]);
   };
@@ -760,6 +911,13 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     const inicio = desdeCero ? { ...horarioVacio(), vac: desde.vac, fer: desde.fer, notas: desde.notas || {}, obs: desde.obs || '' } : horario;
     const r = armar(clave, inicio, config, anterior);
     setHorario(r.horario);
+    let enSig = 0;
+    if (continuar && sigActual && diasSig.length) {
+      const r2 = armar(claveSig, sigH, config, r.horario);
+      enSig = r2.nuevos.filter((x) => diasSig.includes(+x.split('|')[0])).length;
+      setSig(soloDias(sigCrudo, r2.horario, diasSig));
+    }
+    const yEnSig = enSig ? ` También completé ${diasSig.length === 1 ? `el ${diasSig[0]}` : `del ${diasSig[0]} al ${diasSig[diasSig.length - 1]}`} de ${mesSig}.` : '';
     setNuevos(desdeCero ? [] : (n) => [...n, ...r.nuevos]);
     if (desdeCero) {
       setNotas([]);
@@ -771,7 +929,8 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     const extra = r.extras && r.extras.length ? ` Para que no falte gente, ${r.extras.map((x) => `${x.n} hace un ${x.total}.º fin de semana (${x.casa}, ${rango(x)})`).join(' y ')}.` : '';
     const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): quedaron marcados en verde para que los revises.` : '';
     if (extra) setNotas((n) => [...n.filter((x) => !x.startsWith('Para que no falte gente')), extra.trim()]);
-    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${extra}${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
+    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${yEnSig}${extra}${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
+    else if (!r.nuevos.length && enSig) avisar(`Completé ${diasSig.length === 1 ? `el ${diasSig[0]}` : `del ${diasSig[0]} al ${diasSig[diasSig.length - 1]}`} de ${mesSig}. Lo nuevo está en color.`);
     else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${extra}${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.');
   };
 
@@ -806,8 +965,9 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     setOcupado(que);
     try {
       const base = nombreSeguro(`HORARIO ${soloMes(clave).toUpperCase()} ${partesMes(clave).anio}`);
-      if (que === 'excel') descargar(await generarExcelHorario(clave, horario, config, JSZip), `${base}.xlsx`, MIME.xlsx);
-      else descargar(await generarPdfHorario(clave, horario, config, PDFLib, fontkit, await cargarRecursos()), `${base}.pdf`, MIME.pdf);
+      const extra = verSig ? { clave: claveSig, horario: sigH, dias: diasSig } : null;
+      if (que === 'excel') descargar(await generarExcelHorario(clave, horario, config, JSZip, extra), `${base}.xlsx`, MIME.xlsx);
+      else descargar(await generarPdfHorario(clave, horario, config, PDFLib, fontkit, await cargarRecursos(), extra), `${base}.pdf`, MIME.pdf);
       setVentana(null);
       avisar('Listo, revisa tu carpeta de Descargas.');
     } catch (err) {
@@ -844,28 +1004,31 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   }
 
   const esNuevo = (d, k, id) => nuevos.includes(`${d}|${k}|${id}`);
-  const nombres = (d, k) => en(ctx.horario, d, k).map((id) => ({ id, n: ctx.nombre(id), app: esNuevo(d, k, id) }));
+  const fuente = (sig) => (sig ? { ctx: sigCtx, h: sigH, sig: true } : { ctx, h: horario, sig: false });
+  const nombres = (f, d, k) => en(f.h, d, k).map((id) => ({ id, n: f.ctx.nombre(id), app: !f.sig && esNuevo(d, k, id) }));
+  const etiquetaDia = (f, d) => (f.sig ? `${d} ${mesSig.slice(0, 3)}` : String(d));
+  const datosCelda = (f, d, k) => (f.sig ? { 'data-sd': d, 'data-k': k } : { 'data-d': d, 'data-k': k });
 
   const tablaSemana = (s) => {
-    const dias = diasDeSemana(ctx, s);
-    const pre = ctx.wd(dias[0]);
-    const post = 6 - ctx.wd(dias[dias.length - 1]);
-    const hueco = (n, T) => Array.from({ length: n }, (_, i) => <T key={`h${i}`} className="fuera" />);
+    const fila = filas[s];
     return (
       <div className="h-card h-scroll">
         <table className="h-sem">
           <thead>
             <tr>
               <th className="puesto" />
-              {hueco(pre, 'th')}
-              {dias.map((d) => (
-                <th key={d} className={`${ctx.finde(d) ? 'fin' : ''}${horario.fer.includes(d) ? ' fer' : ''}`}>
-                  {DIAS_SEM[ctx.wd(d)]}
-                  <b>{d}</b>
-                  {horario.fer.includes(d) && <span className="fer">FERIADO</span>}
-                </th>
-              ))}
-              {hueco(post, 'th')}
+              {fila.map((c, i) => {
+                if (!c) return <th key={`h${i}`} className="fuera" />;
+                const f = fuente(c.sig);
+                const fer = f.h.fer.includes(c.d);
+                return (
+                  <th key={`${c.sig ? 's' : ''}${c.d}`} className={`${f.ctx.finde(c.d) ? 'fin' : ''}${fer ? ' fer' : ''}${c.sig ? ' sig' : ''}`}>
+                    {DIAS_SEM[f.ctx.wd(c.d)]}
+                    <b>{etiquetaDia(f, c.d)}</b>
+                    {fer && <span className="fer">FERIADO</span>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -875,23 +1038,23 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
                   <i style={{ background: COLOR_PUESTO[k] }} />
                   {k === ON_CALL ? 'On call' : k}
                 </th>
-                {hueco(pre, 'td')}
-                {dias.map((d) => {
-                  const f = ctx.falta(k, d);
+                {fila.map((c, i) => {
+                  if (!c) return <td key={`h${i}`} className="fuera" />;
+                  const f = fuente(c.sig);
+                  const falta = f.ctx.falta(k, c.d);
                   return (
-                    <td key={d} className={ctx.finde(d) ? 'fin' : ''}>
-                      <button type="button" className={`h-celda${f > 0 ? ' falta' : ''}`} data-d={d} data-k={k} onClick={() => setVentana({ tipo: 'elegir', d, k })}>
-                        {nombres(d, k).map((x) => (
-                          <span key={x.id} className={`n${x.app ? ' app' : ''}`}>
+                    <td key={`${c.sig ? 's' : ''}${c.d}`} className={`${f.ctx.finde(c.d) ? 'fin' : ''}${c.sig ? ' sig' : ''}`}>
+                      <button type="button" className={`h-celda${falta > 0 ? ' falta' : ''}`} {...datosCelda(f, c.d, k)} onClick={() => setVentana({ tipo: 'elegir', d: c.d, k, sig: c.sig })}>
+                        {nombres(f, c.d, k).map((x) => (
+                          <span key={x.id} className={`n${x.app ? ' app' : ''}${esOtro(x.id) ? ' otro' : ''}`}>
                             {x.n}
                           </span>
                         ))}
-                        {f > 0 && <span className="f">Revisar · {f === 1 ? 'falta 1' : `faltan ${f}`}</span>}
+                        {falta > 0 && <span className="f">Revisar · {falta === 1 ? 'falta 1' : `faltan ${falta}`}</span>}
                       </button>
                     </td>
                   );
                 })}
-                {hueco(post, 'td')}
               </tr>
             ))}
             <tr className="nota-fila">
@@ -899,18 +1062,18 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
                 <i className="nota-ico" aria-hidden="true">✎</i>
                 Notas
               </th>
-              {hueco(pre, 'td')}
-              {dias.map((d) => {
-                const t = horario.notas[d];
+              {fila.map((c, i) => {
+                if (!c) return <td key={`h${i}`} className="fuera" />;
+                const f = fuente(c.sig);
+                const t = f.h.notas[c.d];
                 return (
-                  <td key={d} className={ctx.finde(d) ? 'fin' : ''}>
-                    <button type="button" className={`h-celda h-nota${t ? ' con' : ''}`} data-nota={d} onClick={() => setVentana({ tipo: 'nota', d })} aria-label={t ? `Nota del ${d}: ${t}` : `Agregar nota al ${d}`}>
+                  <td key={`${c.sig ? 's' : ''}${c.d}`} className={`${f.ctx.finde(c.d) ? 'fin' : ''}${c.sig ? ' sig' : ''}`}>
+                    <button type="button" className={`h-celda h-nota${t ? ' con' : ''}`} {...(c.sig ? { 'data-snota': c.d } : { 'data-nota': c.d })} onClick={() => setVentana({ tipo: 'nota', d: c.d, sig: c.sig })} aria-label={t ? `Nota del ${etiquetaDia(f, c.d)}: ${t}` : `Agregar nota al ${etiquetaDia(f, c.d)}`}>
                       {t || <span className="mas">+ nota</span>}
                     </button>
                   </td>
                 );
               })}
-              {hueco(post, 'td')}
             </tr>
           </tbody>
         </table>
@@ -918,43 +1081,45 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     );
   };
 
-  const cajaDia = (d) => {
-    const falta = faltanEnDia(ctx, d);
+  const cajaDia = (d, sig = false) => {
+    const f = fuente(sig);
+    const falta = PUESTOS.some((k) => f.ctx.falta(k, d) > 0);
+    const nota = f.h.notas[d];
     return (
-      <div key={d} className={`h-dia${ctx.finde(d) ? ' fin' : ''}${falta ? ' mal' : ''}`}>
+      <div key={`${sig ? 's' : ''}${d}`} className={`h-dia${f.ctx.finde(d) ? ' fin' : ''}${falta ? ' mal' : ''}${sig ? ' sig' : ''}`}>
         <div className="dh">
-          <b>{d}</b>
+          <b>{etiquetaDia(f, d)}</b>
           <span className="dh-der">
-            {horario.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">revisar</span> : null}
-            <button type="button" className={`h-lapiz${horario.notas[d] ? ' con' : ''}`} data-nota={d} title={horario.notas[d] ? 'Editar nota' : 'Agregar nota'} aria-label={horario.notas[d] ? `Editar nota del ${d}` : `Agregar nota al ${d}`} onClick={() => setVentana({ tipo: 'nota', d })}>
+            {f.h.fer.includes(d) ? <span className="fer">FERIADO</span> : falta ? <span className="bad">revisar</span> : null}
+            <button type="button" className={`h-lapiz${nota ? ' con' : ''}`} {...(sig ? { 'data-snota': d } : { 'data-nota': d })} title={nota ? 'Editar nota' : 'Agregar nota'} aria-label={nota ? `Editar nota del ${etiquetaDia(f, d)}` : `Agregar nota al ${etiquetaDia(f, d)}`} onClick={() => setVentana({ tipo: 'nota', d, sig })}>
               ✎
             </button>
           </span>
         </div>
         {PUESTOS.map((k) => {
-          const l = nombres(d, k);
-          const f = ctx.falta(k, d);
+          const l = nombres(f, d, k);
+          const fk = f.ctx.falta(k, d);
           return (
-            <button key={k} type="button" className={`h-linea${k === ON_CALL ? ' chica' : ''}`} data-d={d} data-k={k} onClick={() => setVentana({ tipo: 'elegir', d, k })}>
+            <button key={k} type="button" className={`h-linea${k === ON_CALL ? ' chica' : ''}`} {...datosCelda(f, d, k)} onClick={() => setVentana({ tipo: 'elegir', d, k, sig })}>
               <span className="et" style={{ background: COLOR_PUESTO[k] }}>
                 {CORTO[k]}
               </span>
               <span className="qs">
                 {l.map((x, i) => (
-                  <span key={x.id} className={x.app ? 'app' : ''}>
+                  <span key={x.id} className={`${x.app ? 'app' : ''}${esOtro(x.id) ? ' otro' : ''}`}>
                     {x.n}
-                    {i < l.length - 1 || f > 0 ? ', ' : ''}
+                    {i < l.length - 1 || fk > 0 ? ', ' : ''}
                   </span>
                 ))}
-                {f > 0 && <span className="el">elegir{f > 1 ? ` ${f}` : ''}…</span>}
-                {!l.length && f <= 0 && <span className="sin">—</span>}
+                {fk > 0 && <span className="el">elegir{fk > 1 ? ` ${fk}` : ''}…</span>}
+                {!l.length && fk <= 0 && <span className="sin">—</span>}
               </span>
             </button>
           );
         })}
-        {horario.notas[d] && (
-          <button type="button" className="h-dia-nota" onClick={() => setVentana({ tipo: 'nota', d })}>
-            {horario.notas[d]}
+        {nota && (
+          <button type="button" className="h-dia-nota" onClick={() => setVentana({ tipo: 'nota', d, sig })}>
+            {nota}
           </button>
         )}
       </div>
@@ -1067,7 +1232,10 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
         </div>
       );
     }
-    const delaSemana = todos.filter((p) => ctx.semanaDe(p.d) === sem);
+    const semVista = Math.min(sem, filas.length - 1);
+    const enFila = (p) => filas[semVista].some((c) => c && c.sig === !!p.sig && c.d === p.d);
+    const delaSemana = [...todos, ...sigProblemas].filter(enFila);
+    const delMes = [...todos, ...sigProblemas];
     return (
       <>
         <div className="h-barra">
@@ -1081,12 +1249,16 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
           </div>
           {modo === 'semana' && (
             <div className="h-sems">
-              {Array.from({ length: ctx.semanas }, (_, i) => {
-                const ds = diasDeSemana(ctx, i);
+              {filas.map((fila, i) => {
+                const cs = fila.filter(Boolean);
+                const a = cs[0];
+                const z = cs[cs.length - 1];
+                const hay = [...todos, ...sigProblemas].some((p) => fila.some((c) => c && c.sig === !!p.sig && c.d === p.d));
                 return (
-                  <button key={i} type="button" className={i === sem ? 'on' : ''} onClick={() => setSem(i)}>
-                    {ds[0]}–{ds[ds.length - 1]}
-                    {todos.some((p) => ctx.semanaDe(p.d) === i) && <span className="pt" />}
+                  <button key={i} type="button" className={`${i === semVista ? 'on' : ''}${a.sig ? ' sig' : ''}`} onClick={() => setSem(i)}>
+                    {a === z ? a.d : `${a.d}–${z.d}`}
+                    {z.sig ? ` ${mesSig.slice(0, 3)}` : ''}
+                    {hay && <span className="pt" />}
                   </button>
                 );
               })}
@@ -1105,7 +1277,19 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
             Descargar
           </button>
         </div>
-        {ctx.revisa ? aviso(modo === 'semana' ? delaSemana : todos, modo) : <p className="hint">Este mes es anterior a las reglas nuevas, así que la app no lo revisa.</p>}
+        {diasSig.length > 0 && (
+          <label className="h-continuar">
+            <input type="checkbox" id="h-continuar" checked={continuar} onChange={(e) => setContinuar(e.target.checked)} />
+            <span>
+              Completar la semana con {mesSig}
+              <small>
+                {diasSig.length === 1 ? `el ${diasSig[0]}` : `del ${diasSig[0]} al ${diasSig[diasSig.length - 1]}`} de {mesSig}
+                {continuar && !verSig ? ' · cargando…' : ''}
+              </small>
+            </span>
+          </label>
+        )}
+        {ctx.revisa ? aviso(modo === 'semana' ? delaSemana : delMes, modo) : <p className="hint">Este mes es anterior a las reglas nuevas, así que la app no lo revisa.</p>}
         {notas.length > 0 && <p className="hint">{notas.join(' · ')}</p>}
         {horario.obs && (
           <button type="button" className="h-obs" id="h-obs-ver" onClick={() => setVentana({ tipo: 'obs' })}>
@@ -1114,7 +1298,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
           </button>
         )}
         {modo === 'semana' ? (
-          tablaSemana(Math.min(sem, ctx.semanas - 1))
+          tablaSemana(semVista)
         ) : (
           <div className="h-scroll">
             <div className="h-mes">
@@ -1127,6 +1311,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
                 <div key={`v${i}`} className="h-dia out" />
               ))}
               {Array.from({ length: ctx.n }, (_, i) => cajaDia(i + 1))}
+              {verSig && diasSig.map((d) => cajaDia(d, true))}
             </div>
           </div>
         )}
@@ -1202,16 +1387,34 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       />
 
       <Ventana abierta={ventana?.tipo === 'elegir'} onCerrar={() => setVentana(null)} etiqueta="Elegir personas">
-        {ventana?.tipo === 'elegir' && (
+        {ventana?.tipo === 'elegir' && (!ventana.sig || sigCtx) && (
           <Elegir
-            key={`${ventana.d}|${ventana.k}`}
-            ctx={ctx}
+            key={`${ventana.sig ? 's' : ''}${ventana.d}|${ventana.k}`}
+            ctx={ventana.sig ? sigCtx : ctx}
             d={ventana.d}
             k={ventana.k}
             onCerrar={() => setVentana(null)}
             onListo={(ids, todaLaSemana) => {
-              const h2 = ponerEnBloque(ctx, ventana.d, ventana.k, ids, todaLaSemana);
-              cambiar(ventana.k === ON_CALL ? h2 : sincronizarOnCall(clave, h2, config, anterior));
+              const { d, k, sig } = ventana;
+              const libres = (c, x) => ids.filter((id) => !c.enVac(id, x));
+              if (sig) {
+                let h2 = ponerEnBloque(sigCtx, d, k, ids, todaLaSemana);
+                if (k !== ON_CALL) h2 = sincronizarOnCall(claveSig, h2, config, horario);
+                setSig(soloDias(sigCrudo, h2, diasSig));
+                if (todaLaSemana && cruce && cruce.ini.includes(d) && k !== ON_CALL) {
+                  let hm = horario;
+                  for (const x of cruce.fin) hm = poner(hm, x, k, libres(ctx, x));
+                  cambiar(hm);
+                }
+              } else {
+                const h2 = ponerEnBloque(ctx, d, k, ids, todaLaSemana);
+                cambiar(k === ON_CALL ? h2 : sincronizarOnCall(clave, h2, config, anterior));
+                if (todaLaSemana && cruce && cruce.fin.includes(d) && k !== ON_CALL) {
+                  let hs = sigH;
+                  for (const x of cruce.ini) hs = poner(hs, x, k, libres(sigCtx, x));
+                  setSig(soloDias(sigCrudo, hs, diasSig));
+                }
+              }
               setVentana(null);
             }}
           />
@@ -1301,19 +1504,20 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       </Ventana>
 
       <Ventana abierta={ventana?.tipo === 'nota'} onCerrar={() => setVentana(null)} etiqueta="Nota del día">
-        {ventana?.tipo === 'nota' && horario && (
+        {ventana?.tipo === 'nota' && horario && (!ventana.sig || sigH) && (
           <EditarTexto
-            key={`nota${ventana.d}`}
+            key={`nota${ventana.sig ? 's' : ''}${ventana.d}`}
             id="h-nota"
-            titulo={`Nota del ${DIAS_LARGO[ctx.wd(ventana.d)]} ${ventana.d} de ${MESES[ctx.mes]}`}
+            titulo={`Nota del ${DIAS_LARGO[(ventana.sig ? sigCtx : ctx).wd(ventana.d)]} ${ventana.d} de ${MESES[(ventana.sig ? sigCtx : ctx).mes]}`}
             ayuda="Sale en ese día del horario, en el PDF y en el Excel."
             ejemplo="Ej. Marivid de 2 a 8 solo este día"
-            inicial={horario.notas[ventana.d] || ''}
+            inicial={(ventana.sig ? sigH : horario).notas[ventana.d] || ''}
             max={MAX_NOTA}
             filas={3}
             onCerrar={() => setVentana(null)}
             onGuardar={(t) => {
-              cambiar(ponerNota(horario, ventana.d, t));
+              if (ventana.sig) setSig(soloDias(sigCrudo, ponerNota(sigH, ventana.d, t), diasSig));
+              else cambiar(ponerNota(horario, ventana.d, t));
               setVentana(null);
             }}
           />

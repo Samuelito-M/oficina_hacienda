@@ -1,6 +1,6 @@
 import { CASAS } from './personal.js';
 import { MESES } from './text.js';
-import { PUESTOS, ON_CALL, COLOR_PUESTO, CORTO, en, partesMes, diasDelMes } from './horarioApp.js';
+import { PUESTOS, ON_CALL, COLOR_PUESTO, CORTO, en, partesMes, diasDelMes, nombreDeId } from './horarioApp.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -14,18 +14,24 @@ const ETIQUETA = { 'Casa 1': 'Casa1', 'Casa 2': 'Casa2', 'Casa 3': 'Casa3', 'Cas
 const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 const DIAS = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
 
-function semanas(anio, mes) {
+function semanas(anio, mes, horario, extra) {
   const n = diasDelMes(anio, mes);
   const out = [];
   let fila = new Array(7).fill(null);
-  for (let d = 1; d <= n; d++) {
-    const w = new Date(anio, mes, d).getDay();
-    fila[w] = d;
-    if (w === 6 || d === n) {
+  const poner = (d, h, et, w) => {
+    fila[w] = { d, h, et };
+    if (w === 6) {
       out.push(fila);
       fila = new Array(7).fill(null);
     }
+  };
+  for (let d = 1; d <= n; d++) poner(d, horario, String(d), new Date(anio, mes, d).getDay());
+  if (extra && extra.dias && extra.dias.length) {
+    const p = partesMes(extra.clave);
+    const corto = MESES[p.mes].slice(0, 3);
+    for (const d of extra.dias) poner(d, extra.horario, `${d} ${corto}`, new Date(p.anio, p.mes, d).getDay());
   }
+  if (fila.some(Boolean)) out.push(fila);
   return out;
 }
 
@@ -37,39 +43,42 @@ export function tituloHorario(clave) {
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font><font><b/><sz val="13"/><color rgb="FFB26A00"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2F3437"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEEE9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF3DD"/></patternFill></fill></fills><borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top style="thin"><color rgb="FF8A8A8A"/></top><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF8A8A8A"/></left><right style="thin"><color rgb="FF8A8A8A"/></right><top/><bottom style="thin"><color rgb="FF8A8A8A"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
-export async function generarExcelHorario(clave, horario, config, JSZip) {
+export async function generarExcelHorario(clave, horarioMes, config, JSZip, extraMes = null) {
+  const horario = horarioMes;
   const { anio, mes } = partesMes(clave);
   const nombre = new Map(config.personal.map((p) => [p.id, p.n]));
-  const fer = new Set(horario.fer);
   const filas = [];
   const c = (ref, texto, s) => `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${esc(texto)}</t></is></c>`;
   filas.push(`<row r="1" ht="30" customHeight="1">${c('A1', tituloHorario(clave), 1)}</row>`);
   filas.push(`<row r="2" ht="20" customHeight="1">${DIAS.map((d, i) => c(`${COLS[i]}2`, d, 2)).join('')}</row>`);
   let r = 3;
-  for (const sem of semanas(anio, mes)) {
-    filas.push(`<row r="${r}" ht="20" customHeight="1">${sem.map((d, i) => c(`${COLS[i]}${r}`, d == null ? '' : fer.has(d) ? `FERIADO ${d}` : String(d), d != null && fer.has(d) ? 4 : 3)).join('')}</row>`);
+  for (const sem of semanas(anio, mes, horario, extraMes)) {
+    const esFer = (cel) => !!cel && cel.h.fer.includes(cel.d);
+    filas.push(`<row r="${r}" ht="20" customHeight="1">${sem.map((cel, i) => c(`${COLS[i]}${r}`, cel == null ? '' : esFer(cel) ? `FERIADO ${cel.et}` : cel.et, esFer(cel) ? 4 : 3)).join('')}</row>`);
     r++;
-    const hayVac = sem.some((d) => d != null && horario.vac.some((v) => d >= v.de && d <= v.a));
-    const hayNota = sem.some((d) => d != null && horario.notas && horario.notas[d]);
+    const hayVac = sem.some((cel) => cel && cel.h.vac.some((v) => cel.d >= v.de && cel.d <= v.a));
+    const hayNota = sem.some((cel) => cel && cel.h.notas && cel.h.notas[cel.d]);
     const lineas = [...PUESTOS, ...(hayVac ? ['vac'] : []), ...(hayNota ? ['nota'] : [])];
     lineas.forEach((k, li) => {
       const ultimo = li === lineas.length - 1;
       filas.push(
         `<row r="${r}">${sem
-          .map((d, i) => {
+          .map((cel, i) => {
             let t = '';
-            if (d != null) {
+            if (cel != null) {
+              const d = cel.d;
+              const horario = cel.h;
               if (k === 'nota') {
                 t = (horario.notas && horario.notas[d]) || '';
               } else if (k === 'vac') {
                 const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
-                const nv = (x) => nombre.get(x.id) || x.id;
+                const nv = (x) => nombreDeId(x.id, nombre);
                 const dePar = vv.filter((x) => !x.t || x.t === 'vac').map(nv);
                 const otros = vv.filter((x) => x.t && x.t !== 'vac').map(nv);
                 t = [dePar.length ? `VACACIÓN ${dePar.join('-')}` : '', otros.length ? `AUSENTE ${otros.join('-')}` : ''].filter(Boolean).join(' · ');
               } else {
                 const ids = en(horario, d, k);
-                t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => nombre.get(id) || id).join('-')}`;
+                t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => nombreDeId(id, nombre)).join('-')}`;
               }
             }
             return c(`${COLS[i]}${r}`, t, ultimo ? 6 : 5);
@@ -123,10 +132,9 @@ function partir(texto, font, size, max) {
   return out;
 }
 
-export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit, recursos) {
+export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit, recursos, extraMes = null) {
   const { anio, mes } = partesMes(clave);
   const nombre = new Map(config.personal.map((p) => [p.id, p.n]));
-  const fer = new Set(horario.fer);
   const pdf = await PDFLib.PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const R = await pdf.embedFont(recursos.normal, { subset: true });
@@ -143,7 +151,7 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
   page.drawText(titulo, { x: M, y: H - M - 18, size: 20, font: B, color: tinta });
   const leyenda = 'Hacienda of Hope';
   page.drawText(leyenda, { x: W - M - R.widthOfTextAtSize(leyenda, 10), y: H - M - 14, size: 10, font: R, color: gris });
-  const sems = semanas(anio, mes);
+  const sems = semanas(anio, mes, horario, extraMes);
   const top = H - M - 34;
   const cabH = 16;
   const colW = (W - 2 * M) / 7;
@@ -157,15 +165,19 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
   const base = sems.length >= 6 ? 6.6 : 7.4;
   sems.forEach((sem, si) => {
     const yTop = top - cabH - si * filaH;
-    sem.forEach((d, i) => {
+    sem.forEach((cel, i) => {
       const x = M + i * colW;
-      page.drawRectangle({ x, y: yTop - filaH, width: colW, height: filaH, borderColor: linea, borderWidth: 0.7, color: d == null ? PDFLib.rgb(0.96, 0.955, 0.94) : fer.has(d) ? PDFLib.rgb(1, 0.97, 0.9) : blanco });
+      const d = cel ? cel.d : null;
+      const horario = cel ? cel.h : null;
+      const fer = new Set(cel ? cel.h.fer : []);
+      const otroMes = !!cel && cel.et !== String(cel.d);
+      page.drawRectangle({ x, y: yTop - filaH, width: colW, height: filaH, borderColor: linea, borderWidth: 0.7, color: d == null ? PDFLib.rgb(0.96, 0.955, 0.94) : fer.has(d) ? PDFLib.rgb(1, 0.97, 0.9) : otroMes ? PDFLib.rgb(0.985, 0.98, 0.97) : blanco });
       if (d == null) return;
-      page.drawText(String(d), { x: x + 5, y: yTop - 13, size: 11.5, font: B, color: tinta });
-      if (fer.has(d)) page.drawText('FERIADO', { x: x + 5 + B.widthOfTextAtSize(String(d), 11.5) + 5, y: yTop - 12, size: 6.5, font: B, color: PDFLib.rgb(0.7, 0.42, 0) });
+      page.drawText(cel.et, { x: x + 5, y: yTop - 13, size: 11.5, font: B, color: otroMes ? gris : tinta });
+      if (fer.has(d)) page.drawText('FERIADO', { x: x + 5 + B.widthOfTextAtSize(cel.et, 11.5) + 5, y: yTop - 12, size: 6.5, font: B, color: PDFLib.rgb(0.7, 0.42, 0) });
       const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
-      const vs = vv.filter((x) => !x.t || x.t === 'vac').map((x) => nombre.get(x.id) || x.id);
-      const au = vv.filter((x) => x.t && x.t !== 'vac').map((x) => nombre.get(x.id) || x.id);
+      const vs = vv.filter((x) => !x.t || x.t === 'vac').map((x) => nombreDeId(x.id, nombre));
+      const au = vv.filter((x) => x.t && x.t !== 'vac').map((x) => nombreDeId(x.id, nombre));
       const nota = horario.notas && horario.notas[d];
       const armarDia = (size) => {
         const bloques = [];
@@ -173,7 +185,7 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
           const ids = en(horario, d, k);
           if (k === ON_CALL && !ids.length) continue;
           const etW = k === ON_CALL ? 26 : 15;
-          const texto = ids.map((id) => nombre.get(id) || id).join(', ');
+          const texto = ids.map((id) => nombreDeId(id, nombre)).join(', ');
           bloques.push({ k, etW, lineas: texto ? partir(texto, R, size, colW - etW - 12) : [''] });
         }
         const extra = [];
