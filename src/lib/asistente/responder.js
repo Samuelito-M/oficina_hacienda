@@ -8,6 +8,7 @@ import { CASAS } from './entender.js';
 import { respuestaAusencias } from './ausenciasChat.js';
 import { ausenciasDeMes } from '../ausencias.js';
 import { findesDePersona, listaNinos, listaPersonal, descargarHorario } from './datosChat.js';
+import { equipos, acuerdosDoc, casasDoc, menuDoc, ninosDoc, reporteAus } from './oficinaChat.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
 const mayus = (s) => s[0].toUpperCase() + s.slice(1);
@@ -113,7 +114,7 @@ function textos(lang) {
   };
 }
 
-export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga']);
+export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga', 'equipos', 'acuerdos_doc', 'pagos_doc', 'casas_doc', 'menu_doc', 'regalos_doc', 'directorio_doc', 'cumple_doc', 'reporte_aus']);
 
 async function horariosDe(fechas, datos) {
   const meses = Array.from(new Set(fechas.map(claveDe)));
@@ -283,27 +284,6 @@ async function diasPersona(e, datos, T) {
   return { partes, botones: boton };
 }
 
-async function cambioCasa(e, datos, T) {
-  const hoy = datos.hoy;
-  const base = e.fechas && e.fechas.fechas ? e.fechas.fechas[0] : hoy;
-  const [vie, sab, dom] = e.fechas && e.fechas.tipo === 'finde' ? e.fechas.fechas : finDeSemana(base);
-  const hs = await horariosDe([vie, sab, dom], datos);
-  const h = hs[claveDe(sab)];
-  if (!h) return sinHorario(T, [claveDe(sab)]);
-  const mes = claveDe(sab);
-  const necesitan = [];
-  const bien = [];
-  for (const casa of CASAS) {
-    const ids = en(h.horario, sab.getDate(), casa);
-    if (!ids.length) continue;
-    const padres = (datos.personal || []).filter((p) => p.casa === casa && trabajaEn(p, mes));
-    (padres.some((p) => ids.includes(p.id)) ? bien : necesitan).push(casa);
-  }
-  const partes = [{ p: T.findeDel(vie, dom) }, { p: necesitan.length ? T.necesitan(necesitan) : T.noHaceFalta }];
-  if (necesitan.length && bien.length) partes.push({ p: T.conPadres(bien) });
-  return { partes, botones: necesitan.length ? [{ t: T.hacerHojas, preparar: 'casas', clave: mes, horario: h.horario, config: h.config }] : [] };
-}
-
 function cumpleTexto(n, hoy, T) {
   if (!n.nacimiento) return T.sinFecha(n.nombre);
   const pc = proximoCumple(n.nacimiento, hoy);
@@ -383,7 +363,9 @@ async function cumples(e, datos, T) {
   }
   lista.sort((a, b) => a.c - b.c);
   if (!lista.length) return { partes: [{ p: T.nadieCumple(titulo) }], botones: [ir('ninos', T.abrirNinos)] };
-  return { partes: [{ p: T.cumplesTitulo(titulo, lista.length) }, { ul: lista.map((x) => T.cumpleLinea(x.c, x.n.nombre, x.anios, x.n.casa)) }], botones: [ir('ninos', T.abrirNinos)] };
+  const mesPdf = !f || f.tipo === 'mes' ? (f ? f.mes : claveDe(hoy)) : null;
+  const botones = mesPdf ? [{ t: T.E ? 'Download PDF with photos' : 'Descargar PDF con fotos', descarga: { tipo: 'cumple', mes: mesPdf, casa: e.casa || '', idioma: T.E ? 'en' : 'es' } }, ir('ninos', T.abrirNinos)] : [ir('ninos', T.abrirNinos)];
+  return { partes: [{ p: T.cumplesTitulo(titulo, lista.length) }, { ul: lista.map((x) => T.cumpleLinea(x.c, x.n.nombre, x.anios, x.n.casa)) }], botones };
 }
 
 async function ninosCasa(e, datos, T) {
@@ -447,13 +429,29 @@ export async function responder(e, datos) {
     case 'dias_persona':
       return diasPersona(e, datos, T);
     case 'cambio_casa':
-      return cambioCasa(e, datos, T);
+      return casasDoc(e, datos, T);
     case 'cumples':
       return cumples(e, datos, T);
     case 'ninos_casa':
       return ninosCasa(e, datos, T);
     case 'estado_horario':
       return estadoHorario(e, datos, T);
+    case 'equipos':
+      return equipos(e, datos, T);
+    case 'acuerdos_doc':
+      return acuerdosDoc(e, datos, T);
+    case 'pagos_doc':
+      return acuerdosDoc(e, datos, T, true);
+    case 'casas_doc':
+      return casasDoc(e, datos, T);
+    case 'menu_doc':
+      return menuDoc(e, datos, T);
+    case 'regalos_doc':
+    case 'directorio_doc':
+    case 'cumple_doc':
+      return ninosDoc(e, datos, T);
+    case 'reporte_aus':
+      return reporteAus(e, datos, T);
     case 'lista_ninos':
       return listaNinos(e, datos, T);
     case 'lista_personal':

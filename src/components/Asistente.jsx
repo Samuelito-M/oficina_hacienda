@@ -11,7 +11,9 @@ import JSZip from 'jszip';
 import * as PDFLib from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { cargarRecursos } from '../lib/recursos.js';
-import { descargar } from '../lib/archivos.js';
+import { descargar, extension, leerBytes } from '../lib/archivos.js';
+import { leerMenu } from '../lib/menu.js';
+import { mesPorDefecto } from '../lib/asistente/datosChat.js';
 import { crearDescarga } from '../lib/asistente/descargas.js';
 
 const PARECE_DATO = /\b(quien|quienes|cumple|talla|tallas|zapatos|ropa|oncall|descansa|trabaja|trabajan|edad|anos tiene|ninos hay|cambiocasa)\b/;
@@ -98,7 +100,7 @@ function idiomaInicial() {
 
 const BIENVENIDA = { de: 'bot', bienvenida: true };
 
-export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, tab }) {
+export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, tab, oficina, onWordArchivo, onMenuArchivo }) {
   const [abierto, setAbierto] = useState(false);
   const [lang, setLangState] = useState(idiomaInicial);
   const L = UI[lang];
@@ -175,8 +177,15 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
     const r = await api({ accion: 'listar' });
     const v = Array.isArray(r.ninos) ? r.ninos : [];
     cache.current.ninos = { t: Date.now(), v };
+    cache.current.casas = Array.isArray(r.casas) ? r.casas : [];
     return v;
   };
+  const cargarCasas = async () => {
+    if (!cache.current.casas) await cargarNinos();
+    return cache.current.casas || [];
+  };
+  const verOficina = () => (oficina && oficina.current) || {};
+  const datosPara = (usa, hoy, ninos) => ({ hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])), mesActivo: tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null, oficina: verOficina });
 
   const preparar = async () => {
     const hoy = new Date();
@@ -215,8 +224,7 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
         return;
       }
       const ninos = nombres.ninos || [];
-      const mesActivo = tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null;
-      const r = await responder(e, { hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])), mesActivo });
+      const r = await responder(e, datosPara(usa, hoy, ninos));
       if (e.tipo !== 'no_entendi') contexto.current = e;
       if (r) setMensajes((m) => [...m, { de: 'bot', r }]);
     } catch (err) {
@@ -231,25 +239,106 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
   };
 
   const [bajando, setBajando] = useState(false);
+  const decir = (p, extra = {}) => setMensajes((m) => [...m, { de: 'bot', r: { partes: [{ p }], ...extra } }]);
+  const ERRORES = {
+    es: { 'sin-word': 'Para el Word necesito el Word de acuerdos del mes pasado. Súbelo con 📎.', 'sin-horario': 'Ese mes no tiene horario guardado.', 'sin-acuerdos': 'No hay acuerdos que hacer en ese mes.', 'sin-finde': 'Ese fin de semana no está en el horario.', 'sin-hojas': 'No hay hojas marcadas para ese fin de semana.', 'sin-menu': 'Primero súbeme el Excel del menú con 📎.' },
+    en: { 'sin-word': 'For the Word I need last month’s agreements Word. Upload it with 📎.', 'sin-horario': 'That month has no saved schedule.', 'sin-acuerdos': 'There are no agreements to make that month.', 'sin-finde': 'That weekend isn’t in the schedule.', 'sin-hojas': 'No sheets are marked for that weekend.', 'sin-menu': 'First upload the menu Excel with 📎.' }
+  };
   const bajar = async (d) => {
     if (bajando) return;
     setBajando(true);
     try {
-      const f = await crearDescarga(d, { cargarNinos, horario, personal: personalRef.current, libs: { JSZip, PDFLib, fontkit, cargarRecursos } });
+      const f = await crearDescarga(d, { cargarNinos, cargarCasas, horario, personal: personalRef.current, oficina: verOficina(), api, libs: { JSZip, PDFLib, fontkit, cargarRecursos } });
       descargar(f.bytes, f.nombre, f.mime);
-      setMensajes((m) => [...m, { de: 'bot', r: { partes: [{ p: lang === 'en' ? `Done: **${f.nombre}** is in your Downloads folder.` : `Listo: **${f.nombre}** está en tu carpeta de Descargas.` }] } }]);
+      decir(lang === 'en' ? `Done: **${f.nombre}** is in your Downloads folder.` : `Listo: **${f.nombre}** está en tu carpeta de Descargas.`);
     } catch (err) {
       console.error(err);
-      setMensajes((m) => [...m, { de: 'bot', r: { partes: [{ p: lang === 'en' ? 'I couldn’t make the file. Please try again.' : 'No pude armar el archivo. Intenta otra vez.' }] } }]);
+      if (err.codigo === 'sesion') decir(UI[lang].vencio);
+      else decir(ERRORES[lang][err.message] || (lang === 'en' ? 'I couldn’t make the file. Please try again.' : 'No pude armar el archivo. Intenta otra vez.'));
     } finally {
       setBajando(false);
     }
   };
 
+  const archivo = useRef(null);
+  const pendiente = useRef(null);
+  const pedirArchivo = (p) => {
+    pendiente.current = p || null;
+    if (archivo.current) {
+      archivo.current.accept = p && p.tipo === 'word' ? '.docx' : p && p.tipo === 'menu' ? '.xlsx' : '.docx,.xlsx';
+      archivo.current.value = '';
+      archivo.current.click();
+    }
+  };
+  const recibirArchivo = async (file) => {
+    if (!file) return;
+    const p = pendiente.current;
+    pendiente.current = null;
+    const E = lang === 'en';
+    setMensajes((m) => [...m, { de: 'yo', t: `📎 ${file.name}` }]);
+    const ext = extension(file.name);
+    const tipo = p ? p.tipo : ext === 'docx' ? 'word' : ext === 'xlsx' ? 'menu' : '';
+    if (!leerConexion().token) return decir(UI[lang].clave);
+    setPensando(true);
+    try {
+      if (tipo === 'word') {
+        if (ext !== 'docx') return decir(E ? 'That isn’t a Word (.docx). Please upload last month’s agreements Word.' : 'Eso no es un Word (.docx). Súbeme el Word de acuerdos del mes pasado.');
+        const bytes = await leerBytes(file);
+        await onWordArchivo(file);
+        await new Promise((r) => setTimeout(r, 80));
+        const luego = (p && p.luego) || { tipo: 'acuerdos', mes: mesPorDefecto({}, { hoy: new Date(), mesActivo: tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null }) };
+        decir(E ? 'Got it, I have the agreements Word. Making the agreements…' : 'Listo, tengo el Word de acuerdos. Armando los acuerdos…');
+        setPensando(false);
+        await bajar({ ...luego, wordBytes: bytes });
+        return;
+      }
+      if (tipo === 'menu') {
+        if (ext !== 'xlsx') return decir(E ? 'The menu has to be an Excel (.xlsx).' : 'El menú tiene que ser un Excel (.xlsx).');
+        const bytes = await leerBytes(file);
+        try {
+          await leerMenu(bytes.slice(), JSZip);
+        } catch (err) {
+          return decir(E ? 'That Excel doesn’t look like the fortnight menu. If it’s the schedule, use it in Acuerdos.' : 'Ese Excel no parece el menú de la quincena. Si es el horario, úsalo en Acuerdos.');
+        }
+        await onMenuArchivo(file);
+        setPensando(false);
+        await bajar({ tipo: 'menu', menuBytes: bytes, nombre: file.name });
+        return;
+      }
+      decir(E ? 'I can work with the agreements Word (.docx) or the menu Excel (.xlsx).' : 'Puedo trabajar con el Word de acuerdos (.docx) o el Excel del menú (.xlsx).');
+    } catch (err) {
+      console.error(err);
+      decir(E ? 'I couldn’t read that file.' : 'No pude leer ese archivo.');
+    } finally {
+      setPensando(false);
+    }
+  };
+  const repetir = async (e) => {
+    if (pensando) return;
+    setPensando(true);
+    try {
+      const ninos = await cargarNinos();
+      const r = await responder(e, datosPara(lang, new Date(), ninos));
+      if (r) setMensajes((m) => [...m, { de: 'bot', r }]);
+    } catch (err) {
+      decir(UI[lang].red(err.message));
+    } finally {
+      setPensando(false);
+    }
+  };
+
   const boton = (b) => {
     if (b.descarga) return bajar(b.descarga);
+    if (b.pedirArchivo) return pedirArchivo(b.pedirArchivo);
+    if (b.repetir) return repetir(b.repetir);
+    if (b.copiar != null) {
+      const ok = () => decir(lang === 'en' ? 'Copied. You can paste it in WhatsApp now.' : 'Copiado. Ya lo puedes pegar en WhatsApp.');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(b.copiar).then(ok, () => decir(lang === 'en' ? 'This browser didn’t let me copy.' : 'Este navegador no dejó copiar.'));
+      else decir(lang === 'en' ? 'This browser didn’t let me copy.' : 'Este navegador no dejó copiar.');
+      return;
+    }
     if (b.preparar) {
-      onHorarioApp(b.clave, b.horario, b.config);
+      if (verOficina().claveCargada !== b.clave) onHorarioApp(b.clave, b.horario, b.config);
       location.hash = `#${b.preparar}`;
     } else if (b.ir === 'horario' && b.mes) irAHorario(b.mes);
     else location.hash = `#${b.ir}`;
@@ -340,6 +429,10 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
               preguntar(texto);
             }}
           >
+            <button type="button" className="as-clip" id="as-clip" onClick={() => pedirArchivo(null)} title={lang === 'en' ? 'Send a file (agreements Word or menu Excel)' : 'Mandar un archivo (Word de acuerdos o Excel del menú)'} aria-label={lang === 'en' ? 'Send a file' : 'Mandar un archivo'} disabled={pensando}>
+              📎
+            </button>
+            <input ref={archivo} type="file" hidden id="as-archivo" onChange={(e) => recibirArchivo(e.target.files && e.target.files[0])} />
             <input ref={entrada} id="as-texto" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={L.escribe} aria-label={L.escribe} autoComplete="off" enterKeyHint="send" />
             <button type="submit" id="as-enviar" disabled={!texto.trim() || pensando} aria-label={L.enviar}>
               ➤

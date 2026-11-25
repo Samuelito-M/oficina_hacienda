@@ -94,6 +94,7 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)( .*)?$/.test(s) && sinVacias.length <= 1) return { tipo: 'saludo' };
   if (/^(gracias|muchas gracias|ok|okey|listo|perfecto|genial|vale|chevere|bien|super)( .*)?$/.test(s) && sinVacias.length <= 2) return { tipo: 'gracias' };
 
+  if (/\b(que (puedes|sabes) hacer|que haces|what can you do|what do you do|what can you help)\b/.test(String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) return { tipo: 'guia', articulo: GUIA.find((g) => g.id === 'samjr'), otros: [] };
   const exacto = GUIA.find((a) => plano(a.titulo) === s || (a.en && plano(a.en.titulo) === s));
   if (exacto) return { tipo: 'guia', articulo: exacto, otros: [] };
   let fechas = leerFechas(texto, hoy, idioma);
@@ -140,10 +141,43 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   const rolPedido = /\bpadresdecasa\b|\bpadres de casa\b|\bpadres\b/.test(s) ? 'padre' : /\bauxiliares\b/.test(s) ? 'aux' : '';
   const hayDescargaHorario = /\bhorario\b/.test(s) && tiene(ps, 'descargar', 'descarga', 'bajar', 'pdf', 'excel', 'imprimir', 'dame', 'mandame', 'pasame', 'manda', 'archivo') && !trab.length;
   const hayFinde = tiene(ps, 'finde', 'findes', 'fines');
-  const conIntencion = hayListaNinos || hayListaPersonal || hayDescargaHorario || hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
+  const comoReal = /\b(como|donde|pasos|funciona|instrucciones|explicame|ensename|manera|forma|se hace)\b/.test(s) || /^(how|where)\b/.test(crudo);
+  const NUM = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  const aNum = (t) => (t in NUM ? NUM[t] : +t);
+  const mCuantos = crudo.match(/\b(\d{1,2}|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|two|three|four|five|six|seven|eight|nine|ten)\s+(?:equipos?|grupos?|teams?|groups?)\b/);
+  const mRango = crudo.match(/\b(?:de|entre|edad(?:es)?|ages?|from)\s*(\d{1,2})\s*(?:a|y|hasta|-|to|and|al)\s*(\d{1,2})\b/);
+  const porEdad = /\bpor edad(es)?\b|\bby age\b/.test(crudo);
+  const porCasaG = /\bpor casas?\b|\bby house\b/.test(crudo);
+  const porSexoG = /\bpor (sexo|genero)\b|\bby (gender|sex)\b|\bninos y ninas (separados|aparte)\b|\bboys and girls (separate|apart)\b/.test(crudo);
+  const hayEquipos = !comoReal && (/\b(equipos?|teams?)\b/.test(crudo) || (/\b(grupos?|groups?)\b/.test(crudo) && (palabraNinos || porEdad || porCasaG || porSexoG || !!mCuantos || /\b(divid|separ|arm|haz|hazme|make|split)/.test(crudo))));
+  const pideDoc = tiene(ps, 'dame', 'pasame', 'mandame', 'manda', 'descargar', 'descarga', 'bajar', 'imprimir', 'imprime', 'genera', 'generar', 'haz', 'hazme', 'saca', 'sacame', 'necesito', 'quiero', 'prepara', 'preparame', 'arma', 'armame', 'documento', 'archivo', 'word', 'pdf', 'excel', 'hojas', 'hoja', 'send', 'make', 'get') || /\b(dame|pasame|hazme|sacame|mandame|preparame|armame)\b/.test(crudo);
+  const hayAcuerdos = !comoReal && /\b(acuerdos?|agreements?)\b/.test(crudo) && !/\bpagos?\b|\bpayments?\b/.test(crudo);
+  const hayPagos = !comoReal && /\b(pagos?|payments?)\b/.test(crudo) && (/\bacuerdos?\b|\bagreements?\b|\bexcel\b|\bcontabilidad\b|\baccounting\b/.test(crudo) || pideDoc);
+  const hayCasasDoc = !comoReal && hayCambio && (pideDoc || tiene(ps, 'hojas', 'hoja', 'imprimir', 'imprimo'));
+  const hayMenuDoc = !comoReal && /\bmenu\b/.test(s) && (pideDoc || tiene(ps, 'limpia', 'limpiar', 'limpio', 'arregla', 'arreglar', 'corrige', 'corregir', 'clean', 'fix'));
+  const hayRegalos = !comoReal && /\bregalos?\b|\bgift/.test(crudo);
+  const hayDirectorio = !comoReal && /\bdirectorio\b|\bdirectory\b/.test(crudo);
+  const ingles = /\ben ingles\b|\bin english\b|\benglish\b/.test(crudo) ? 'en' : /\ben espanol\b|\bin spanish\b|\bspanish\b/.test(crudo) ? 'es' : '';
+  const hayCumpleDoc = !comoReal && hayCumple && !nin.length && (tiene(ps, 'pdf', 'imprimir', 'documento', 'hoja', 'cartel', 'afiche', 'descargar', 'archivo') || /\b(pdf|poster|print)\b/.test(crudo));
+  const hayReporteAus = !comoReal && hayAus && !trab.length && (tiene(ps, 'reporte', 'excel', 'descargar', 'archivo', 'report', 'resumen') || /\b(reporte|report|excel)\b/.test(crudo));
+  const conIntencion = hayEquipos || hayAcuerdos || hayPagos || hayCasasDoc || hayMenuDoc || hayRegalos || hayDirectorio || hayCumpleDoc || hayReporteAus || hayListaNinos || hayListaPersonal || hayDescargaHorario || hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
   const seguir = seguimiento(contexto, s, sinVacias, conIntencion, ent);
   if (seguir) return seguir;
 
+  if (hayEquipos) {
+    const desde = mRango ? Math.min(+mRango[1], +mRango[2]) : edadMin != null ? +edadMin + 1 : null;
+    const hasta = mRango ? Math.max(+mRango[1], +mRango[2]) : edadMax != null ? +edadMax - 1 : null;
+    const modo = !mCuantos && (porEdad || porCasaG || porSexoG) && !/\b(equipos?|teams?)\b/.test(crudo) ? 'grupos' : 'equipos';
+    return r('equipos', { n: mCuantos ? Math.max(2, Math.min(12, aNum(mCuantos[1]))) : 2, desde, hasta, sexo, modo, porEdad, porCasa: porCasaG, porSexo: porSexoG || (modo === 'grupos' && !porEdad && !porCasaG) });
+  }
+  if (hayPagos) return r('pagos_doc');
+  if (hayAcuerdos) return r('acuerdos_doc');
+  if (hayCasasDoc) return r('casas_doc', { todas: tiene(ps, 'todas', 'todos') || /\ball\b/.test(crudo) });
+  if (hayMenuDoc) return r('menu_doc');
+  if (hayRegalos) return r('regalos_doc', { idiomaDoc: ingles });
+  if (hayDirectorio) return r('directorio_doc', { idiomaDoc: ingles });
+  if (hayCumpleDoc) return r('cumple_doc', { idiomaDoc: ingles });
+  if (hayReporteAus) return r('reporte_aus', { anioAus });
   if (!como && hayDescargaHorario) return r('horario_descarga');
   if (!como && hayListaNinos) return r('lista_ninos', { sexo, edadMin: edadMin != null ? +edadMin : null, edadMax: edadMax != null ? +edadMax : null });
   if (!como && hayListaPersonal) return r('lista_personal', { rol: rolPedido });

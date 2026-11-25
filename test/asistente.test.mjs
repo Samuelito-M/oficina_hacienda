@@ -49,7 +49,7 @@ ok(x.t.includes('Wendy') && x.t.includes('Casa 4'), 'seguimiento con otra person
 x = await pregunta('quien descansa el jueves');
 ok(x.t.includes('No trabajan') && !x.t.includes('Myriam') && x.t.includes('De vacaciones o ausentes: Marlene'), 'quién descansa y quién está de vacaciones: ' + x.t.slice(0, 200));
 x = await pregunta('que casas necesitan cambio de casa');
-ok(x.t.includes('Casa 2') && !x.t.includes('Necesitan hoja de cambio de casa: **Casa 1') && x.r.botones[0].preparar === 'casas', 'cambio de casa: Casa 2 (no están Julián y Alejandra): ' + x.t);
+ok(x.t.includes('(hojas marcadas): Casa 2.') && x.r.botones[0].descarga && x.r.botones[0].descarga.tipo === 'casas', 'cambio de casa: Casa 2 (no están Julián y Alejandra) y botón para el PDF: ' + x.t);
 x = await pregunta('cuando cumple micaela');
 ok(x.t.includes('Mikaela Andrade** cumple 10 años el miércoles 3 de marzo') && x.t.includes('Ahora tiene 9'), 'cumpleaños con faltas de ortografía: ' + x.t);
 x = await pregunta('y josue?');
@@ -78,7 +78,7 @@ x = await pregunta('Copiar el horario del mes anterior');
 ok(x.e.tipo === 'guia' && x.e.articulo.id === 'copiar', 'tocar una sugerencia abre ese tema');
 x = await pregunta('blablabla xyz');
 ok(x.e.tipo === 'no_entendi' && x.r.sugerencias.length === 4, 'no entendí + ejemplos');
-for (const [q, id] of [['como pongo vacaciones a mayra', 'vacaciones'], ['donde pongo la cedula', 'cedulas'], ['como imprimo las hojas de cambio de casa', 'cambiocasa'], ['como hago los acuerdos', 'acuerdos'], ['como subo fotos', 'fotosSubir'], ['como instalo la app en el celular', 'celular'], ['olvide la clave', 'clave'], ['como agrego un niño nuevo', 'ninoNuevo'], ['como separo en equipos', 'equipos'], ['hojas de regalo', 'regalos'], ['como arreglo el menu', 'menu'], ['excel de pagos', 'pagos'], ['como guardo los cambios del horario', 'guardar'], ['como descargo el horario en pdf', 'descargar'], ['que significa lo verde', 'verde'], ['como cambio las reglas', 'reglas'], ['como pongo una nota', 'notas'], ['como cambio a alguien de casa un dia', 'cambiar'], ['como borro el horario', 'borrar'], ['como se agrega un trabajador', 'trabajadores'], ['copia de seguridad', 'copiaSeguridad'], ['donde veo cuantos dias faltaron o tomaron vacaciones', 'control'], ['como saco el reporte anual de ausencias', 'control']]) {
+for (const [q, id] of [['como pongo vacaciones a mayra', 'vacaciones'], ['donde pongo la cedula', 'cedulas'], ['como imprimo las hojas de cambio de casa', 'cambiocasa'], ['como hago los acuerdos', 'acuerdos'], ['como subo fotos', 'fotosSubir'], ['como instalo la app en el celular', 'celular'], ['olvide la clave', 'clave'], ['como agrego un niño nuevo', 'ninoNuevo'], ['como separo en equipos', 'equipos'], ['como hago las hojas de regalo', 'regalos'], ['como arreglo el menu', 'menu'], ['como saco el excel de pagos', 'pagos'], ['como guardo los cambios del horario', 'guardar'], ['como descargo el horario en pdf', 'descargar'], ['que significa lo verde', 'verde'], ['como cambio las reglas', 'reglas'], ['como pongo una nota', 'notas'], ['como cambio a alguien de casa un dia', 'cambiar'], ['como borro el horario', 'borrar'], ['como se agrega un trabajador', 'trabajadores'], ['copia de seguridad', 'copiaSeguridad'], ['donde veo cuantos dias faltaron o tomaron vacaciones', 'control'], ['como saco el reporte anual de ausencias', 'control']]) {
   const e = entender(q, { hoy, trabajadores: config.personal, ninos });
   ok(e.tipo === 'guia' && e.articulo.id === id, `"${q}" → ${id}${e.tipo === 'guia' ? '' : ' (salió ' + e.tipo + ')'}${e.articulo && e.articulo.id !== id ? ' (salió ' + e.articulo.id + ')' : ''}`);
 }
@@ -100,7 +100,7 @@ ok(x.t.includes('**Myriam** in November 2026: 4 days in houses, 1 weekend.') && 
 x = await ask('Who has the day off on Thursday?');
 ok(x.t.includes('Not working:') && x.t.includes('On vacation or absent: Marlene.'), 'EN: day off and vacation');
 x = await ask('Which houses need a house change this weekend?');
-ok(x.t.includes('Need a house change sheet: **Casa 2**') && x.r.botones[0].t === 'Make the sheets', 'EN: house change');
+ok(x.t.includes('(sheets marked): Casa 2.') && x.r.botones[0].t === 'Download PDF (1)', 'EN: house change');
 x = await ask("When is Mikaela's birthday?");
 ok(x.t.includes('**Mikaela Andrade** turns 10 on Wednesday, March 3 (in 105 days). Now 9 years old.'), 'EN: birthday: ' + x.t);
 x = await ask('How old is Josue?');
@@ -127,7 +127,7 @@ x = await ask('blah blah xyz');
 ok(x.e.tipo === 'no_entendi', 'unknown stays unknown');
 x = await ask('¿Quién trabaja el sábado?');
 ok(x.lang === 'es' && x.t.includes('Sábado 21 de noviembre'), 'switching back to Spanish answers in Spanish');
-for (const [q, id] of [['How do I copy last month schedule?', 'copiar'], ['How do I add a new worker?', 'trabajadores'], ['How do I make the agreements?', 'acuerdos'], ['Where do I put the ID number?', 'cedulas'], ['How do I upload photos?', 'fotosSubir'], ['How do I install the app on my phone?', 'celular'], ['I forgot the password', 'clave'], ['What does green mean?', 'verde'], ['How do I print the house change sheets?', 'cambiocasa'], ['how do i fix the menu', 'menu'], ['how do i add vacation for mayra', 'vacaciones'], ['how do I add a note', 'notas'], ['how do i delete the schedule', 'borrar'], ['how do I split kids into teams', 'equipos'], ['gift sheets', 'regalos'], ['payments excel', 'pagos'], ['how do I save my changes', 'guardar'], ['how do I download the schedule as pdf', 'descargar'], ['how do I change the rules', 'reglas'], ['how do I add a new child', 'ninoNuevo'], ['backup', 'copiaSeguridad'], ['where is the staff absence report', 'control'], ['how do I see the yearly absence report', 'control']]) {
+for (const [q, id] of [['How do I copy last month schedule?', 'copiar'], ['How do I add a new worker?', 'trabajadores'], ['How do I make the agreements?', 'acuerdos'], ['Where do I put the ID number?', 'cedulas'], ['How do I upload photos?', 'fotosSubir'], ['How do I install the app on my phone?', 'celular'], ['I forgot the password', 'clave'], ['What does green mean?', 'verde'], ['How do I print the house change sheets?', 'cambiocasa'], ['how do i fix the menu', 'menu'], ['how do i add vacation for mayra', 'vacaciones'], ['how do I add a note', 'notas'], ['how do i delete the schedule', 'borrar'], ['how do I split kids into teams', 'equipos'], ['how do I make the gift sheets', 'regalos'], ['how do I get the payments excel', 'pagos'], ['how do I save my changes', 'guardar'], ['how do I download the schedule as pdf', 'descargar'], ['how do I change the rules', 'reglas'], ['how do I add a new child', 'ninoNuevo'], ['backup', 'copiaSeguridad'], ['where is the staff absence report', 'control'], ['how do I see the yearly absence report', 'control']]) {
   const e = entender(q, { hoy, trabajadores: config.personal, ninos, idioma: 'en' });
   ok(e.tipo === 'guia' && e.articulo.id === id, `EN "${q}" → ${id}${e.tipo !== 'guia' ? ' (got ' + e.tipo + ')' : e.articulo.id !== id ? ' (got ' + e.articulo.id + ')' : ''}`);
 }

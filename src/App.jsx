@@ -26,7 +26,7 @@ import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.24';
+const VERSION = '1.25';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -61,6 +61,7 @@ export default function App() {
   const [horConfig, setHorConfig] = useState(null);
   const [mesHorario, setMesHorario] = useState(null);
   const vivoRef = useRef(null);
+  const oficinaRef = useRef({});
   const [horarioMontado, setHorarioMontado] = useState(() => leerTab() === 'horario');
 
   useEffect(() => {
@@ -326,6 +327,7 @@ export default function App() {
     }
   };
 
+  oficinaRef.current = { word, menu, over, marcas, mantener, dicExtra, claveCargada: horario.app ? horario.app.clave : null };
   const resultadoMenu = useMemo(() => (menu.info ? previsualizarMenu(menu.info, dicExtra) : null), [menu.info, dicExtra]);
 
   const onDescargarMenu = async () => {
@@ -429,7 +431,7 @@ export default function App() {
           </p>
         </div>
       </main>
-      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario}  vivo={vivoRef} tab={tab} />
+      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario}  vivo={vivoRef} tab={tab} oficina={oficinaRef} onWordArchivo={onWord} onMenuArchivo={onMenu} />
       {toast && (
         <div className="toast" role="status">
           {toast}

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import Subir from '../components/Subir.jsx';
 import HorarioGuardado from '../components/HorarioGuardado.jsx';
-import { SECCIONES } from '../lib/casas.js';
+import { SECCIONES, hojasDelFinde } from '../lib/casas.js';
+export { hojasDelFinde };
 import { claveFinde } from '../lib/seleccion.js';
 import { esOtro, nombreOtro } from '../lib/horarioApp.js';
 import { mesDe, mesHoy, trabajaEn } from '../lib/personal.js';
@@ -14,18 +15,6 @@ const BAJAR = (
     <path d="M5 20h14" />
   </svg>
 );
-
-export function hojasDelFinde(f, personal, marcas) {
-  const porId = new Map(personal.map((p) => [p.id, p]));
-  return Object.keys(f.casas).map((casa) => {
-    const ids = (f.casasSabado[casa] && f.casasSabado[casa].length ? f.casasSabado[casa] : f.casas[casa]) || [];
-    const padres = personal.filter((p) => p.casa === casa && trabajaEn(p, mesDe(f.sabado)));
-    const estan = ids.filter((id) => padres.some((p) => p.id === id));
-    const k = `${claveFinde(f)}|${casa}`;
-    const marcada = k in marcas ? marcas[k] : estan.length === 0;
-    return { casa, k, ids, nombres: ids.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)).join(' - '), estan: estan.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)), padres, marcada, viernes: f.viernes, domingo: f.domingo };
-  });
-}
 
 function Hoja({ h }) {
   const vacias = (n, p) => Array.from({ length: n }, (_, i) => (

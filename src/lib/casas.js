@@ -1,3 +1,6 @@
+import { claveFinde } from './seleccion.js';
+import { esOtro, nombreOtro } from './horarioApp.js';
+import { mesDe, trabajaEn } from './personal.js';
 import { fechaCorta, fold } from './text.js';
 
 export const SECCIONES = [
@@ -86,4 +89,16 @@ export async function generarCambiosDeCasa(hojas, PDFLib) {
     fila(26, [{ t: 'Entrega Tutor 2: ___________________   Recibe Tutor 1. ___________________________', f: bold, span: 4, dy: -6 }], [1, 2, 3]);
   }
   return pdf.save();
+}
+
+export function hojasDelFinde(f, personal, marcas) {
+  const porId = new Map(personal.map((p) => [p.id, p]));
+  return Object.keys(f.casas).map((casa) => {
+    const ids = (f.casasSabado[casa] && f.casasSabado[casa].length ? f.casasSabado[casa] : f.casas[casa]) || [];
+    const padres = personal.filter((p) => p.casa === casa && trabajaEn(p, mesDe(f.sabado)));
+    const estan = ids.filter((id) => padres.some((p) => p.id === id));
+    const k = `${claveFinde(f)}|${casa}`;
+    const marcada = k in marcas ? marcas[k] : estan.length === 0;
+    return { casa, k, ids, nombres: ids.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)).join(' - '), estan: estan.map((id) => porId.get(id)?.nombre || (esOtro(id) ? nombreOtro(id) : id)), padres, marcada, viernes: f.viernes, domingo: f.domingo };
+  });
 }
