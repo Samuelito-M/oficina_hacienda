@@ -56,7 +56,7 @@ export async function generarExcelHorario(clave, horarioMes, config, JSZip, extr
     const esFer = (cel) => !!cel && cel.h.fer.includes(cel.d);
     filas.push(`<row r="${r}" ht="20" customHeight="1">${sem.map((cel, i) => c(`${COLS[i]}${r}`, cel == null ? '' : esFer(cel) ? `FERIADO ${cel.et}` : cel.et, esFer(cel) ? 4 : 3)).join('')}</row>`);
     r++;
-    const hayVac = sem.some((cel) => cel && cel.h.vac.some((v) => cel.d >= v.de && cel.d <= v.a));
+    const hayVac = sem.some((cel) => cel && cel.h.vac.some((v) => (!v.t || v.t === 'vac') && cel.d >= v.de && cel.d <= v.a));
     const hayNota = sem.some((cel) => cel && cel.h.notas && cel.h.notas[cel.d]);
     const lineas = [...PUESTOS, ...(hayVac ? ['vac'] : []), ...(hayNota ? ['nota'] : [])];
     lineas.forEach((k, li) => {
@@ -74,8 +74,7 @@ export async function generarExcelHorario(clave, horarioMes, config, JSZip, extr
                 const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
                 const nv = (x) => nombreDeId(x.id, nombre);
                 const dePar = vv.filter((x) => !x.t || x.t === 'vac').map(nv);
-                const otros = vv.filter((x) => x.t && x.t !== 'vac').map(nv);
-                t = [dePar.length ? `VACACIÓN ${dePar.join('-')}` : '', otros.length ? `AUSENTE ${otros.join('-')}` : ''].filter(Boolean).join(' · ');
+                t = dePar.length ? `VACACIÓN ${dePar.join('-')}` : '';
               } else {
                 const ids = en(horario, d, k);
                 t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => nombreDeId(id, nombre)).join('-')}`;
@@ -177,7 +176,6 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
       if (fer.has(d)) page.drawText('FERIADO', { x: x + 5 + B.widthOfTextAtSize(cel.et, 11.5) + 5, y: yTop - 12, size: 6.5, font: B, color: PDFLib.rgb(0.7, 0.42, 0) });
       const vv = horario.vac.filter((v) => d >= v.de && d <= v.a);
       const vs = vv.filter((x) => !x.t || x.t === 'vac').map((x) => nombreDeId(x.id, nombre));
-      const au = vv.filter((x) => x.t && x.t !== 'vac').map((x) => nombreDeId(x.id, nombre));
       const nota = horario.notas && horario.notas[d];
       const armarDia = (size) => {
         const bloques = [];
@@ -190,7 +188,6 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
         }
         const extra = [];
         if (vs.length) extra.push({ t: partir(`Vacación: ${vs.join(', ')}`, R, size - 0.6, colW - 10), color: gris });
-        if (au.length) extra.push({ t: partir(`Ausente: ${au.join(', ')}`, R, size - 0.6, colW - 10), color: gris });
         if (nota) extra.push({ t: partir(`Nota: ${nota}`, R, size - 0.4, colW - 10), color: PDFLib.rgb(0.6, 0.38, 0) });
         const filas = bloques.reduce((a, b2) => a + b2.lineas.length, 0) + extra.reduce((a, e) => a + e.t.length, 0);
         return { bloques, extra, filas, extras: bloques.length };

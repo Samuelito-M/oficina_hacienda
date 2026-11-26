@@ -1,6 +1,6 @@
 import { CASAS } from '../personal.js';
 import { edad } from '../ninos.js';
-import { ON_CALL, activos, normalizarConfig, normalizarHorario } from '../horarioApp.js';
+import { ON_CALL, activos, normalizarConfig, normalizarHorario, contexto, conteoFindes } from '../horarioApp.js';
 import { MESES_P, MESES_EN, DIAS_BONITO, DIAS_EN, claveDe, finDeSemana } from './fechas.js';
 
 const MAX_EN_CHAT = 60;
@@ -126,5 +126,38 @@ export async function descargarHorario(e, datos, T) {
       { t: E ? 'Download Excel' : 'Descargar Excel', descarga: { tipo: 'horario', formato: 'xlsx', mes } },
       ir('horario', E ? 'Open it' : 'Abrirlo', { mes })
     ]
+  };
+}
+
+const DIA_CORTO = { es: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] };
+
+export async function conteoFindesChat(e, datos, T) {
+  const E = T.E;
+  const f = e.fechas;
+  const mes = f && f.tipo === 'mes' ? f.mes : datos.mesActivo || claveDe(datos.hoy);
+  const r = await datos.horario(mes);
+  const h = r && normalizarHorario(r.horario);
+  if (!h || !Object.keys(h.dias).length) return { partes: [{ p: E ? `${mayus(nombreMes(mes, E))} doesn't have a schedule yet.` : `${mayus(nombreMes(mes, E))} todavía no tiene horario.` }], botones: [ir('horario', E ? 'Make it' : 'Hacerlo', { mes })] };
+  const ctx = contexto(mes, h, normalizarConfig(r.config));
+  const filas = conteoFindes(ctx);
+  const dc = DIA_CORTO[E ? 'en' : 'es'];
+  const rango = (dias) => {
+    const t = (d) => `${dc[ctx.wd(d)]} ${d}`;
+    return dias.length > 1 ? `${t(dias[0])}–${t(dias[dias.length - 1])}` : t(dias[0]);
+  };
+  const orden = (f) => (f.rol === 'padre' ? 1 : f.rol === 'otro' ? 2 : 0);
+  const con = filas.filter((f) => f.findes.length).sort((a, b) => orden(a) - orden(b) || a.n.localeCompare(b.n, 'es'));
+  const sin = filas.filter((f) => !f.findes.length && f.rol !== 'otro');
+  const linea = (f) => `**${f.n}**: ${f.findes.length} — ${f.findes.map((x) => `${rango(x.dias)} (${x.casas.join(', ')})`).join(' · ')}`;
+  const partes = [{ p: E ? `Weekends each person works in **${nombreMes(mes, E)}**:` : `Fines de semana que trabaja cada persona en **${nombreMes(mes, E)}**:` }];
+  if (con.length) partes.push({ ul: con.map(linea) });
+  else partes.push({ p: E ? 'Nobody has weekends in the schedule yet.' : 'Nadie tiene fines de semana puestos todavía.' });
+  if (sin.length) partes.push({ p: E ? `No weekends: ${sin.map((f) => f.n).join(', ')}.` : `No trabajan fines de semana: ${sin.map((f) => f.n).join(', ')}.` });
+  if (r.vivo && r.sinGuardar) partes.push({ p: E ? 'It includes the changes you haven’t saved yet.' : 'Incluye los cambios que todavía no guardaste.' });
+  const texto = [`${E ? 'Weekends' : 'Fines de semana'} · ${nombreMes(mes, E)}`, ...con.map((f) => linea(f).replace(/\*\*/g, '')), ...(sin.length ? [`${E ? 'No weekends' : 'No trabajan fines de semana'}: ${sin.map((f) => f.n).join(', ')}`] : [])].join('\n');
+  return {
+    partes,
+    botones: [{ t: E ? 'Copy' : 'Copiar', copiar: texto }, ir('horario', E ? 'See the Schedule' : 'Ver el Horario', { mes })],
+    sugerencias: con.length ? [E ? `How many weekends does ${con[0].n} work?` : `¿Qué fines de semana trabaja ${con[0].n}?`] : []
   };
 }

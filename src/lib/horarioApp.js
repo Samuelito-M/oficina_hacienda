@@ -678,6 +678,26 @@ export function resumenMes(ctx) {
   });
 }
 
+export function conteoFindes(ctx) {
+  const ids = activos(ctx.config, ctx.clave).map((p) => p.id);
+  for (const f of ctx.findes) for (const d of f.dias) for (const c of CASAS) for (const id of en(ctx.horario, d, c)) if (esOtro(id) && !ids.includes(id)) ids.push(id);
+  return ids.map((id) => {
+    const p = ctx.porId.get(id);
+    const findes = ctx.findes
+      .map((f) => {
+        const dias = f.dias.filter((d) => ctx.donde(id, d));
+        return dias.length ? { dias, casas: [...new Set(dias.map((d) => ctx.donde(id, d)))] } : null;
+      })
+      .filter(Boolean);
+    return { id, n: ctx.nombre(id), rol: p ? p.rol : 'otro', findes };
+  });
+}
+
+export function rangoFinde(ctx, dias) {
+  const t = (d) => `${DIAS_SEM[ctx.wd(d)].toLowerCase()} ${d}`;
+  return dias.length > 1 ? `${t(dias[0])}–${t(dias[dias.length - 1])}` : t(dias[0]);
+}
+
 export function desdeExcel(dias, personalAcuerdos, config) {
   const nombreDe = new Map(personalAcuerdos.map((p) => [p.id, p.nombre]));
   let cfg = config;

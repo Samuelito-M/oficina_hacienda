@@ -58,11 +58,38 @@ import {
   nombreOtro,
   MAX_OTRO,
   diasContinuacion,
-  soloDias
+  soloDias,
+  conteoFindes,
+  rangoFinde
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const K_CONTINUAR = 'oficina-hacienda.horario.continuar';
+const K_VISTOS = 'oficina-hacienda.horario.vistos';
+const MAX_VISTOS_MES = 300;
+const llaveProblema = (p) => `${p.sig ? 's' : ''}${p.tipo}|${p.d}|${p.t}`;
+
+function leerVistos(clave) {
+  try {
+    const todo = JSON.parse(localStorage.getItem(K_VISTOS) || '{}');
+    return Array.isArray(todo[clave]) ? todo[clave].filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarVistos(clave, lista) {
+  try {
+    const todo = JSON.parse(localStorage.getItem(K_VISTOS) || '{}');
+    if (lista.length) todo[clave] = lista.slice(-MAX_VISTOS_MES);
+    else delete todo[clave];
+    const meses = Object.keys(todo).sort();
+    while (meses.length > 24) delete todo[meses.shift()];
+    localStorage.setItem(K_VISTOS, JSON.stringify(todo));
+  } catch {
+    return;
+  }
+}
 const nombreMes = (clave) => {
   const { anio, mes } = partesMes(clave);
   return `${Cap(MESES[mes])} ${anio}`;
@@ -498,7 +525,7 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   return (
     <>
       <h3>Ausencias y feriados</h3>
-      <p className="hint">De {mes}. A quien no está la app lo saca del horario esos días. Cada ausencia queda guardada con su motivo para el reporte del personal, y en el horario impreso solo dice “Vacación” o “Ausente”.</p>
+      <p className="hint">De {mes}. A quien no está la app lo saca del horario esos días. Cada ausencia queda guardada con su motivo para el reporte del personal, y en el horario impreso solo sale “Vacación” (las otras ausencias no se imprimen).</p>
       <div className="h-lista">
         {delMes.map(({ p, x }, i) => (
           <div key={`${p.id}${x.de}${x.a}${i}`}>
@@ -628,6 +655,13 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   const [modo, setModo] = useState('semana');
   const [sem, setSem] = useState(0);
   const [ventana, setVentana] = useState(null);
+  const [vistos, setVistosEstado] = useState(() => ({ de: clave, lista: leerVistos(clave) }));
+  const listaVistos = vistos.de === clave ? vistos.lista : leerVistos(clave);
+  const setVistos = (lista) => {
+    setVistosEstado({ de: clave, lista });
+    guardarVistos(clave, lista);
+  };
+  const [verTodosAviso, setVerTodosAviso] = useState(false);
   const [ocupado, setOcupado] = useState('');
   const archivo = useRef(null);
   const conRef = useRef(con);
@@ -1127,14 +1161,25 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   };
 
   const aviso = (lista, donde) => {
-    const malos = lista;
+    const visto = new Set(listaVistos);
+    const malos = lista.filter((p) => !visto.has(llaveProblema(p)));
+    const yaVistos = lista.length - malos.length;
+    const volver = yaVistos > 0 && (
+      <button type="button" className="btn-link h-vistos" id="h-vistos" onClick={() => setVistos(listaVistos.filter((k) => !lista.some((p) => llaveProblema(p) === k)))}>
+        Volver a mostrar las que ya vi ({yaVistos})
+      </button>
+    );
     if (!malos.length)
       return (
         <div className="h-estado ok">
           <span>✓</span>
-          <div>{donde === 'mes' ? 'Todo el mes está completo.' : 'Esta semana está completa.'}</div>
+          <div>
+            {!lista.length ? (donde === 'mes' ? 'Todo el mes está completo.' : 'Esta semana está completa.') : donde === 'mes' ? 'Ya revisaste todo lo del mes.' : 'Ya revisaste todo lo de esta semana.'}
+            {volver}
+          </div>
         </div>
       );
+    const tope = verTodosAviso ? malos.length : 8;
     return (
       <div className="h-estado mal">
         <span aria-hidden="true">📝</span>
@@ -1142,12 +1187,23 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
           <b>
             {malos.length === 1 ? '1 cosa' : `${malos.length} cosas`} para revisar {donde === 'mes' ? 'en el mes' : 'esta semana'}
           </b>
-          <ul>
-            {malos.slice(0, 6).map((p, i) => (
-              <li key={i}>{p.t}</li>
+          <span className="h-revisar-ayuda">Marca cada una cuando ya la viste y se quita de la lista.</span>
+          <ul className="h-revisar" id="h-revisar">
+            {malos.slice(0, tope).map((p) => (
+              <li key={llaveProblema(p)}>
+                <label>
+                  <input type="checkbox" checked={false} onChange={() => setVistos([...listaVistos, llaveProblema(p)])} aria-label={`Ya lo vi: ${p.t}`} />
+                  <span>{p.t}</span>
+                </label>
+              </li>
             ))}
-            {malos.length > 6 && <li>y {malos.length - 6} más…</li>}
           </ul>
+          {malos.length > tope && (
+            <button type="button" className="btn-link" id="h-revisar-mas" onClick={() => setVerTodosAviso(true)}>
+              Ver las otras {malos.length - tope}
+            </button>
+          )}
+          {volver}
         </div>
       </div>
     );
@@ -1322,6 +1378,9 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
             </span>
           )}
           <span className="esp" />
+          <button type="button" className="h-btn h-conteo" id="h-conteo" onClick={() => setVentana({ tipo: 'conteo' })}>
+            Conteo de fines de semana
+          </button>
           <button type="button" className="btn-link" onClick={() => setVentana({ tipo: 'resumen' })}>
             Ver resumen del mes
           </button>
@@ -1503,6 +1562,17 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
         </div>
       </Ventana>
 
+      <Ventana abierta={ventana?.tipo === 'conteo'} onCerrar={() => setVentana(null)} etiqueta="Conteo de fines de semana">
+        <h3>Fines de semana de {soloMes(clave)}</h3>
+        <p className="hint">Cuántos fines de semana trabaja cada persona y cuáles. El on call no se cuenta.</p>
+        {ventana?.tipo === 'conteo' && <Conteo ctx={ctx} />}
+        <div className="h-acc">
+          <button type="button" className="h-btn prim" onClick={() => setVentana(null)}>
+            Listo
+          </button>
+        </div>
+      </Ventana>
+
       <Ventana abierta={ventana?.tipo === 'nota'} onCerrar={() => setVentana(null)} etiqueta="Nota del día">
         {ventana?.tipo === 'nota' && horario && (!ventana.sig || sigH) && (
           <EditarTexto
@@ -1617,5 +1687,42 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
         </div>
       )}
     </section>
+  );
+}
+
+const GRUPOS_CONTEO = [
+  ['aux', 'Auxiliares'],
+  ['padre', 'Padres de casa'],
+  ['otro', 'Otras personas']
+];
+
+function Conteo({ ctx }) {
+  const filas = conteoFindes(ctx);
+  const con = filas.filter((f) => f.findes.length);
+  const sin = filas.filter((f) => !f.findes.length && f.rol !== 'otro');
+  const grupo = (f) => (f.rol === 'padre' ? 'padre' : f.rol === 'otro' ? 'otro' : 'aux');
+  return (
+    <div className="h-conteo-lista" id="h-conteo-lista">
+      {GRUPOS_CONTEO.map(([k, titulo]) => {
+        const lista = con.filter((f) => grupo(f) === k).sort((a, b) => a.n.localeCompare(b.n, 'es'));
+        if (!lista.length) return null;
+        return (
+          <div key={k}>
+            <h4>{titulo}</h4>
+            <ul>
+              {lista.map((f) => (
+                <li key={f.id} data-conteo={f.id}>
+                  <b>{f.n}</b>
+                  <span className="n">{f.findes.length}</span>
+                  <span className="d">{f.findes.map((x) => `${rangoFinde(ctx, x.dias)} (${x.casas.join(', ')})`).join(' · ')}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      {!con.length && <p className="hint">Nadie tiene fines de semana puestos todavía.</p>}
+      {sin.length > 0 && <p className="hint">No trabajan fines de semana: {sin.map((f) => f.n).join(', ')}.</p>}
+    </div>
   );
 }

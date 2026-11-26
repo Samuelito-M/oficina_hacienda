@@ -7,7 +7,7 @@ import { DIAS_BONITO, DIAS_EN, MESES_P, MESES_EN, fechaBonita, claveDe, finDeSem
 import { CASAS } from './entender.js';
 import { respuestaAusencias } from './ausenciasChat.js';
 import { ausenciasDeMes } from '../ausencias.js';
-import { findesDePersona, listaNinos, listaPersonal, descargarHorario } from './datosChat.js';
+import { findesDePersona, listaNinos, listaPersonal, descargarHorario, conteoFindesChat } from './datosChat.js';
 import { equipos, acuerdosDoc, casasDoc, menuDoc, ninosDoc, reporteAus } from './oficinaChat.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
@@ -114,7 +114,7 @@ function textos(lang) {
   };
 }
 
-export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga', 'equipos', 'acuerdos_doc', 'pagos_doc', 'casas_doc', 'menu_doc', 'regalos_doc', 'directorio_doc', 'cumple_doc', 'reporte_aus']);
+export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga', 'equipos', 'acuerdos_doc', 'pagos_doc', 'casas_doc', 'menu_doc', 'regalos_doc', 'directorio_doc', 'cumple_doc', 'reporte_aus', 'conteo_findes']);
 
 async function horariosDe(fechas, datos) {
   const meses = Array.from(new Set(fechas.map(claveDe)));
@@ -458,6 +458,8 @@ export async function responder(e, datos) {
       return listaPersonal(e, datos, T);
     case 'horario_descarga':
       return descargarHorario(e, datos, T);
+    case 'conteo_findes':
+      return conteoFindesChat(e, datos, T);
     case 'aus_persona':
     case 'aus_ahora':
     case 'aus_resumen':

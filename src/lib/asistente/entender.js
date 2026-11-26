@@ -98,7 +98,7 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   const exacto = GUIA.find((a) => plano(a.titulo) === s || (a.en && plano(a.en.titulo) === s));
   if (exacto) return { tipo: 'guia', articulo: exacto, otros: [] };
   let fechas = leerFechas(texto, hoy, idioma);
-  if (/\bcuant|\bhow many\b/i.test(plano(texto)) && /\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/i.test(String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+  if (/\bcuant|\bhow many\b|\bconteo\b|\bweekend count\b/i.test(plano(texto)) && /\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/i.test(String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
     fechas = leerFechas(String(texto).replace(/\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/gi, ' '), hoy, idioma);
   }
   const casa = leerCasa(texto);
@@ -160,10 +160,13 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   const ingles = /\ben ingles\b|\bin english\b|\benglish\b/.test(crudo) ? 'en' : /\ben espanol\b|\bin spanish\b|\bspanish\b/.test(crudo) ? 'es' : '';
   const hayCumpleDoc = !comoReal && hayCumple && !nin.length && (tiene(ps, 'pdf', 'imprimir', 'documento', 'hoja', 'cartel', 'afiche', 'descargar', 'archivo') || /\b(pdf|poster|print)\b/.test(crudo));
   const hayReporteAus = !comoReal && hayAus && !trab.length && (tiene(ps, 'reporte', 'excel', 'descargar', 'archivo', 'report', 'resumen') || /\b(reporte|report|excel)\b/.test(crudo));
-  const conIntencion = hayEquipos || hayAcuerdos || hayPagos || hayCasasDoc || hayMenuDoc || hayRegalos || hayDirectorio || hayCumpleDoc || hayReporteAus || hayListaNinos || hayListaPersonal || hayDescargaHorario || hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
+  const cadaUno = /\b(cada|todos|todas|everyone|everybody|each|all|todo el personal|el personal)\b/.test(crudo);
+  const hayConteo = (!comoReal || /^how many\b/.test(crudo)) && !trab.length && !hayAus && (/\bconteo\b/.test(crudo) || /\bweekend count\b/.test(crudo) || ((hayFinde || /\bweekends?\b/.test(crudo)) && (cadaUno || /\b(quien|quienes|who)\b.*\b(cuantos|cuantas|how many)\b|\b(cuantos|cuantas|how many)\b.*\b(quien|quienes|who)\b/.test(crudo)) && /\b(cuantos|cuantas|how many|count|cuenta|contar|conteo|cuantas veces)\b/.test(crudo)));
+  const conIntencion = hayConteo || hayEquipos || hayAcuerdos || hayPagos || hayCasasDoc || hayMenuDoc || hayRegalos || hayDirectorio || hayCumpleDoc || hayReporteAus || hayListaNinos || hayListaPersonal || hayDescargaHorario || hayAus || hayTalla || hayCumple || hayEdad || hayOncall || hayDescanso || hayCambio || hayTrabajo || hayEstadoHorario || hayNinosCasa || hayCasaDe || como;
   const seguir = seguimiento(contexto, s, sinVacias, conIntencion, ent);
   if (seguir) return seguir;
 
+  if (hayConteo) return r('conteo_findes');
   if (hayEquipos) {
     const desde = mRango ? Math.min(+mRango[1], +mRango[2]) : edadMin != null ? +edadMin + 1 : null;
     const hasta = mRango ? Math.max(+mRango[1], +mRango[2]) : edadMax != null ? +edadMax - 1 : null;
