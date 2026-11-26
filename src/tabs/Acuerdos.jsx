@@ -312,7 +312,7 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
               </div>
               <label className="check">
                 <input type="checkbox" id="ac-por-persona" checked={porPersona} onChange={(e) => setPorPersona(e.target.checked)} />
-                <span>Para imprimir a doble cara: ordenar el Word por persona (todos sus fines de semana juntos) y que cada persona empiece en una hoja nueva. Word pone una página en blanco de separación cuando hace falta.</span>
+                <span>Para imprimir a doble cara: todos los fines de semana de cada persona juntos, en el mismo orden del Word del mes pasado. Si a alguien le toca un número impar de hojas, se pone una página en blanco después, así la siguiente persona empieza en una hoja nueva.</span>
               </label>
               {word.info && (
                 <label className="check">

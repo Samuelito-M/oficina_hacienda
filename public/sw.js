@@ -1,4 +1,4 @@
-const CACHE = 'oficina-hacienda-v1.27';
+const CACHE = 'oficina-hacienda-v1.28';
 const PESADOS = 'oficina-hacienda-caras-1.7.15';
 const BASE = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 

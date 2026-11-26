@@ -30,17 +30,56 @@ const ced = nombresEn(xp);
 const bloques = [];
 for (const c of ced) if (!bloques.length || bloques[bloques.length - 1][0] !== c) bloques.push([c]); else bloques[bloques.length - 1].push(c);
 ok(ced.length === 10 && bloques.length === 4, 'por persona: los 10 acuerdos quedan en 4 grupos seguidos (uno por persona)');
-const ordenEsperado = gente.map((p, i) => ({ c: p.cedula, n: p.completo, k: cuantos[i] })).sort((a, b) => a.n.localeCompare(b.n, 'es'));
-ok(JSON.stringify(bloques.map((b) => [b[0], b.length])) === JSON.stringify(ordenEsperado.map((x) => [x.c, x.k])), 'ordenados por nombre y con todos sus fines de semana');
-const saltos = (xp.match(/<w:type w:val="oddPage"\/>/g) || []).length;
-ok(saltos === 3, 'entre persona y persona hay un salto "a página impar" (3 saltos para 4 personas): ' + saltos);
-ok((xp.match(/<w:sectPr/g) || []).length === 4, 'las secciones copian el formato de página del documento');
+const ordenEsperado = gente.map((p, i) => ({ c: p.cedula, k: cuantos[i] }));
+ok(JSON.stringify(bloques.map((b) => [b[0], b.length])) === JSON.stringify(ordenEsperado.map((x) => [x.c, x.k])), 'en el mismo orden del Word del mes pasado y con todos sus fines de semana');
+const paginas = (xml) => {
+  const cuerpo = xml.slice(xml.indexOf('<w:body>'));
+  const ps = cuerpo.match(/<w:p[ >][\s\S]*?<\/w:p>|<w:p\/>/g) || [];
+  let pag = 1;
+  const out = [];
+  ps.forEach((p, i) => {
+    if (i > 0 && /<w:pageBreakBefore(?! w:val="(?:0|false)")/.test(p)) pag++;
+    const m = p.replace(/<[^>]+>/g, '').match(/se(?:ñ|n)or\s*\(\s*a\s*\)\s*.*?CC\.\s*(\d{10})/i);
+    const vacia = !p.replace(/<[^>]+>/g, '').trim();
+    out.push({ pag, ced: m ? m[1] : '', vacia });
+  });
+  return out;
+};
+const pg = paginas(xp);
+const inicio = new Map();
+for (const x of pg) if (x.ced && !inicio.has(x.ced)) inicio.set(x.ced, x.pag);
+ok(Array.from(inicio.values()).every((n) => n % 2 === 1), 'cada persona empieza en página impar (frente de una hoja nueva): ' + Array.from(inicio.values()).join(','));
+const total = pg[pg.length - 1].pag;
+const conTexto = new Set(pg.filter((x) => !x.vacia).map((x) => x.pag));
+const blancas = [];
+for (let i = 1; i <= total; i++) if (!conTexto.has(i)) blancas.push(i);
+ok(blancas.length === 2, 'páginas en blanco de verdad después de quien termina en impar (3 y 1 fines): ' + blancas.join(','));
+ok(!/oddPage/.test(xp) && (xp.match(/<w:sectPr/g) || []).length === 1, 'sin saltos de sección (se ve y se imprime igual en cualquier programa)');
 const fechas = Array.from(xp.replace(/<[^>]+>/g, '').matchAll(/S[aá]bado,?\s*(\d{1,2}) de diciembre/gi)).map((m) => +m[1]);
 ok(fechas.length === 0 || fechas.length >= 10, 'fechas presentes');
 const xs = await gen(false);
-ok(!(xs.match(/oddPage/g) || []).length && nombresEn(xs).length === 10, 'con la casilla apagada queda como antes (sin saltos de sección)');
+ok(!(xs.match(/oddPage/g) || []).length && nombresEn(xs).length === 10 && !paginas(xs).some((x, i, a) => x.vacia && i > 0 && a[i - 1].pag !== x.pag && (a[i + 1] || {}).pag !== x.pag), 'con la casilla apagada queda como antes (sin páginas en blanco)');
 const xv = await gen(true, true);
-ok(nombresEn(xv).length > 10 && (xv.match(/oddPage/g) || []).length >= 4, 'los acuerdos viejos que se conservan también van agrupados por persona');
+const pv = paginas(xv);
+const iniV = new Map();
+for (const x of pv) if (x.ced && !iniV.has(x.ced)) iniV.set(x.ced, x.pag);
+ok(nombresEn(xv).length > 10 && Array.from(iniV.values()).every((n) => n % 2 === 1), 'con los acuerdos viejos que se conservan, cada persona sigue empezando en hoja nueva');
+const wv = await leerWord(bytes, JSZip);
+const ordenWord = wv.personas.map((p) => p.cedula).filter((c) => iniV.has(c));
+const ordenSalida = Array.from(iniV.keys()).filter((c) => ordenWord.includes(c));
+ok(JSON.stringify(ordenSalida.slice(0, ordenWord.length)) === JSON.stringify(ordenWord), 'el orden de las personas es el del Word');
+
+// Si el Word que se sube ya trae saltos de sección viejos (de la versión anterior), se quitan
+const conSeccion = await (async () => {
+  const z = await JSZip.loadAsync(await (async () => { const w = await leerWord(bytes, JSZip); return generarWord(w, lista, { mes: 11, anio: 2026, mantenerViejos: false, porPersona: true }); })());
+  let x = await z.file('word/document.xml').async('string');
+  x = x.replace(/(<w:p [^>]*>)(<w:pPr>)/, '$1$2<w:sectPr><w:type w:val="oddPage"/></w:sectPr>');
+  z.file('word/document.xml', x);
+  return z.generateAsync({ type: 'uint8array' });
+})();
+const w2 = await leerWord(conSeccion, JSZip);
+const x2 = (await JSZip.loadAsync(await generarWord(w2, lista, { mes: 0, anio: 2027, mantenerViejos: true, porPersona: true }))).file('word/document.xml').async('string');
+ok(!/oddPage/.test(await x2), 'un Word viejo con saltos de sección sale limpio');
 
 const cfg = A.configInicial();
 const cfgMuchos = A.normalizarConfig({ ...cfg, personal: cfg.personal.map((p) => (p.id === 'yazmira' ? { ...p, fm: A.TODOS_FINDES } : p)) });
