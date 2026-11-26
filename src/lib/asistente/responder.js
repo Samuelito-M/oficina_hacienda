@@ -1,4 +1,4 @@
-import { ON_CALL, en, activos, normalizarConfig, normalizarHorario, contexto, problemas, esOtro, nombreOtro } from '../horarioApp.js';
+import { ON_CALL, en, activos, normalizarConfig, normalizarHorario, contexto, problemas, esOtro, nombreOtro, turnoDe, conTurno } from '../horarioApp.js';
 import { trabajaEn } from '../personal.js';
 import { edad, proximoCumple } from '../ninos.js';
 import { tallaDe } from '../tallas.js';
@@ -156,7 +156,8 @@ async function quienTrabaja(e, datos, T) {
   const partes = [];
   if (dias.length === 1) {
     const d = dias[0];
-    const filas = casas.map((k) => ({ k, n: ids(d, k).map(nombreDe(d)) })).filter((x) => x.n.length || e.casa);
+    const conT = (k) => (id) => conTurno(nombreDe(d)(id), turnoDe(hs[claveDe(d)] && hs[claveDe(d)].horario, d.getDate(), k, id));
+    const filas = casas.map((k) => ({ k, n: ids(d, k).map(conT(k)) })).filter((x) => x.n.length || e.casa);
     const oc = ids(d, ON_CALL).map(nombreDe(d));
     partes.push({ p: `**${mayus(T.fecha(d, hoy))}**` });
     if (!filas.length) partes.push({ p: T.nadieEseDia });

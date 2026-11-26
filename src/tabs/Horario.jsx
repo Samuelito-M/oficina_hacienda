@@ -60,7 +60,10 @@ import {
   diasContinuacion,
   soloDias,
   conteoFindes,
-  rangoFinde
+  rangoFinde,
+  TURNOS,
+  turnoDe,
+  ponerTurnos
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -112,6 +115,8 @@ function cuando(iso) {
 function Elegir({ ctx, d, k, onListo, onCerrar }) {
   const actuales = en(ctx.horario, d, k);
   const [sel, setSel] = useState(actuales);
+  const [tur, setTur] = useState(() => ({ ...((ctx.horario.tur && ctx.horario.tur[d] && ctx.horario.tur[d][k]) || {}) }));
+  const conTurnos = k !== ON_CALL;
   const [verNo, setVerNo] = useState(false);
   const [toda, setToda] = useState(true);
   const bloque = ctx.bloque(d);
@@ -146,6 +151,32 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
     <label key={p.id}>
       <input type="checkbox" checked={sel.includes(p.id)} onChange={(e) => setSel((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
       <span>{p.n}</span>
+      {conTurnos && sel.includes(p.id) && (
+        <span className="h-tur" role="group" aria-label={`Turno de ${p.n} (opcional)`}>
+          {TURNOS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`h-tur-b ${t}`}
+              data-tur={`${p.id}|${t}`}
+              aria-pressed={tur[p.id] === t}
+              title={tur[p.id] === t ? 'Tocar otra vez para quitar' : t === 'am' ? 'Turno de la mañana' : 'Turno de la tarde'}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setTur((x) => {
+                  const y = { ...x };
+                  if (y[p.id] === t) delete y[p.id];
+                  else y[p.id] = t;
+                  return y;
+                });
+              }}
+            >
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </span>
+      )}
       <span className="r">{m || (esOtro(p.id) ? 'no es del personal' : esDeUnaCasa(p, k) ? 'padre/madre de esta casa' : p.pref === k ? 'prefiere esta casa' : p.id && ctx.porId.get(p.id) && !deAqui(ctx.porId.get(p.id)) ? (k === ON_CALL ? 'no hace on call' : `no va a ${k}`) : '')}</span>
     </label>
   );
@@ -156,6 +187,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
         {k === ON_CALL ? 'On call' : k} · {DIAS_LARGO[ctx.wd(d)]} {d} de {MESES[ctx.mes]}
       </h3>
       <p className="hint">{pide}</p>
+      {conTurnos && <p className="hint h-tur-ayuda">Si quieres, marca AM o PM al lado de cada nombre. Es opcional; tócalo otra vez para quitarlo.</p>}
       <div className="h-opc">{si.length ? si.map(fila) : <p className="hint">{no.length ? 'Nadie está libre ese día. Si igual quieres poner a alguien, elígelo abajo.' : k === ON_CALL ? 'Nadie tiene marcado “On call” en Personal y reglas.' : `Nadie tiene marcada ${k} en Personal y reglas.`}</p>}</div>
       {no.length > 0 && (
         <>
@@ -218,7 +250,7 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
         <button type="button" className="h-btn" onClick={onCerrar}>
           Cancelar
         </button>
-        <button type="button" className="h-btn prim" id="h-elegir-ok" onClick={() => onListo(sel, conBloque && toda)}>
+        <button type="button" className="h-btn prim" id="h-elegir-ok" onClick={() => onListo(sel, conBloque && toda, tur)}>
           Listo
         </button>
       </div>
@@ -1082,6 +1114,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
                         {nombres(f, c.d, k).map((x) => (
                           <span key={x.id} className={`n${x.app ? ' app' : ''}${esOtro(x.id) ? ' otro' : ''}`}>
                             {x.n}
+                            <Turno t={turnoDe(f.h, c.d, k, x.id)} />
                           </span>
                         ))}
                         {falta > 0 && <span className="f">Revisar · {falta === 1 ? 'falta 1' : `faltan ${falta}`}</span>}
@@ -1142,6 +1175,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
                 {l.map((x, i) => (
                   <span key={x.id} className={`${x.app ? 'app' : ''}${esOtro(x.id) ? ' otro' : ''}`}>
                     {x.n}
+                    <Turno t={turnoDe(f.h, d, k, x.id)} />
                     {i < l.length - 1 || fk > 0 ? ', ' : ''}
                   </span>
                 ))}
@@ -1453,24 +1487,26 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
             d={ventana.d}
             k={ventana.k}
             onCerrar={() => setVentana(null)}
-            onListo={(ids, todaLaSemana) => {
+            onListo={(ids, todaLaSemana, tur) => {
               const { d, k, sig } = ventana;
               const libres = (c, x) => ids.filter((id) => !c.enVac(id, x));
+              const conTur = (c, h, dias) => (k === ON_CALL ? h : dias.reduce((hh, x) => ponerTurnos(hh, x, k, tur), h));
+              const diasDe = (c) => (todaLaSemana ? c.bloque(d) : [d]);
               if (sig) {
-                let h2 = ponerEnBloque(sigCtx, d, k, ids, todaLaSemana);
+                let h2 = conTur(sigCtx, ponerEnBloque(sigCtx, d, k, ids, todaLaSemana), diasDe(sigCtx));
                 if (k !== ON_CALL) h2 = sincronizarOnCall(claveSig, h2, config, horario);
                 setSig(soloDias(sigCrudo, h2, diasSig));
                 if (todaLaSemana && cruce && cruce.ini.includes(d) && k !== ON_CALL) {
                   let hm = horario;
-                  for (const x of cruce.fin) hm = poner(hm, x, k, libres(ctx, x));
+                  for (const x of cruce.fin) hm = ponerTurnos(poner(hm, x, k, libres(ctx, x)), x, k, tur);
                   cambiar(hm);
                 }
               } else {
-                const h2 = ponerEnBloque(ctx, d, k, ids, todaLaSemana);
+                const h2 = conTur(ctx, ponerEnBloque(ctx, d, k, ids, todaLaSemana), diasDe(ctx));
                 cambiar(k === ON_CALL ? h2 : sincronizarOnCall(clave, h2, config, anterior));
                 if (todaLaSemana && cruce && cruce.fin.includes(d) && k !== ON_CALL) {
                   let hs = sigH;
-                  for (const x of cruce.ini) hs = poner(hs, x, k, libres(sigCtx, x));
+                  for (const x of cruce.ini) hs = ponerTurnos(poner(hs, x, k, libres(sigCtx, x)), x, k, tur);
                   setSig(soloDias(sigCrudo, hs, diasSig));
                 }
               }
@@ -1724,5 +1760,14 @@ function Conteo({ ctx }) {
       {!con.length && <p className="hint">Nadie tiene fines de semana puestos todavía.</p>}
       {sin.length > 0 && <p className="hint">No trabajan fines de semana: {sin.map((f) => f.n).join(', ')}.</p>}
     </div>
+  );
+}
+
+function Turno({ t }) {
+  if (!t) return null;
+  return (
+    <span className={`tur ${t}`} title={t === 'am' ? 'Turno de la mañana' : 'Turno de la tarde'}>
+      {t.toUpperCase()}
+    </span>
   );
 }

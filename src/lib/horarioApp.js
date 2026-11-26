@@ -109,13 +109,40 @@ export function diasContinuacion(clave) {
 
 export function soloDias(base, nuevo, dias) {
   const out = { ...base, dias: { ...base.dias }, notas: { ...(base.notas || {}) } };
+  const tur = { ...(base.tur || {}) };
   for (const d of dias) {
     if (nuevo.dias[d]) out.dias[d] = nuevo.dias[d];
     else delete out.dias[d];
+    if (nuevo.tur && nuevo.tur[d]) tur[d] = nuevo.tur[d];
+    else delete tur[d];
     if (nuevo.notas && nuevo.notas[d]) out.notas[d] = nuevo.notas[d];
     else delete out.notas[d];
   }
+  if (Object.keys(tur).length) out.tur = tur;
+  else delete out.tur;
   return out;
+}
+
+export const TURNOS = ['am', 'pm'];
+export const turnoDe = (h, d, k, id) => (h && h.tur && h.tur[d] && h.tur[d][k] && h.tur[d][k][id]) || '';
+export const conTurno = (n, t) => (t ? `${n} (${t.toUpperCase()})` : n);
+
+function turnosDelDia(h, d, k, ids, mapa) {
+  const tur = { ...(h.tur || {}) };
+  const dia = { ...(tur[d] || {}) };
+  const casa = {};
+  for (const id of ids) if (TURNOS.includes(mapa[id])) casa[id] = mapa[id];
+  if (Object.keys(casa).length) dia[k] = casa;
+  else delete dia[k];
+  if (Object.keys(dia).length) tur[d] = dia;
+  else delete tur[d];
+  const out = { ...h, tur };
+  if (!Object.keys(tur).length) delete out.tur;
+  return out;
+}
+
+export function ponerTurnos(h, d, k, mapa) {
+  return turnosDelDia(h, d, k, en(h, d, k), mapa || {});
 }
 
 export const activo = (p, clave) => !!p && (!p.hasta || clave <= p.hasta);
@@ -165,6 +192,14 @@ export function normalizarHorario(h) {
     }
   }
   out.obs = limpiarTexto(h.obs, MAX_OBS);
+  if (h.tur && typeof h.tur === 'object') {
+    let x = out;
+    for (const [d, dia] of Object.entries(h.tur)) {
+      if (!out.dias[+d] || !dia || typeof dia !== 'object') continue;
+      for (const [k, mapa] of Object.entries(dia)) if (PUESTOS.includes(k) && k !== ON_CALL && mapa && typeof mapa === 'object') x = turnosDelDia(x, +d, k, en(out, +d, k), mapa);
+    }
+    if (x.tur) out.tur = x.tur;
+  }
   return out;
 }
 
@@ -177,7 +212,8 @@ export function poner(h, d, k, ids) {
   else delete dia[k];
   if (Object.keys(dia).length) dias[d] = dia;
   else delete dias[d];
-  return { ...h, dias };
+  const out = { ...h, dias };
+  return h.tur && h.tur[d] && h.tur[d][k] ? turnosDelDia(out, d, k, ids, h.tur[d][k]) : out;
 }
 
 const esFinde = (w) => w === 5 || w === 6 || w === 0;

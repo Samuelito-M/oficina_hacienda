@@ -1,6 +1,6 @@
 import { CASAS } from './personal.js';
 import { MESES } from './text.js';
-import { PUESTOS, ON_CALL, COLOR_PUESTO, CORTO, en, partesMes, diasDelMes, nombreDeId } from './horarioApp.js';
+import { PUESTOS, ON_CALL, COLOR_PUESTO, CORTO, en, partesMes, diasDelMes, nombreDeId, turnoDe, conTurno } from './horarioApp.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -77,7 +77,7 @@ export async function generarExcelHorario(clave, horarioMes, config, JSZip, extr
                 t = dePar.length ? `VACACIÓN ${dePar.join('-')}` : '';
               } else {
                 const ids = en(horario, d, k);
-                t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => nombreDeId(id, nombre)).join('-')}`;
+                t = k === ON_CALL && !ids.length ? '' : `${ETIQUETA[k]}: ${ids.map((id) => conTurno(nombreDeId(id, nombre), turnoDe(horario, d, k, id))).join('-')}`;
               }
             }
             return c(`${COLS[i]}${r}`, t, ultimo ? 6 : 5);
@@ -183,7 +183,7 @@ export async function generarPdfHorario(clave, horario, config, PDFLib, fontkit,
           const ids = en(horario, d, k);
           if (k === ON_CALL && !ids.length) continue;
           const etW = k === ON_CALL ? 26 : 15;
-          const texto = ids.map((id) => nombreDeId(id, nombre)).join(', ');
+          const texto = ids.map((id) => conTurno(nombreDeId(id, nombre), turnoDe(horario, d, k, id))).join(', ');
           bloques.push({ k, etW, lineas: texto ? partir(texto, R, size, colW - etW - 12) : [''] });
         }
         const extra = [];
