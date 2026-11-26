@@ -63,7 +63,7 @@ export async function crearDescarga(d, { cargarNinos, horario, personal = [], li
     const bytesWord = d.wordBytes || (oficina.word && oficina.word.bytes);
     if (!bytesWord) throw new Error('sin-word');
     const w = await leerWord(bytesWord.slice(), JSZip);
-    const out = await generarWord(w, lista.map((a) => ({ completo: a.completo, cedula: a.cedula, sabado: a.sabado })), { mes: an.mes, anio: an.anio, mantenerViejos: oficina.mantener !== false });
+    const out = await generarWord(w, lista.map((a) => ({ completo: a.completo, cedula: a.cedula, sabado: a.sabado })), { mes: an.mes, anio: an.anio, mantenerViejos: oficina.mantener !== false, porPersona: oficina.porPersona !== false });
     return { bytes: out, nombre: nombreSeguro(`ACUERDOS DE TRABAJO ${mesTxt}.docx`), mime: MIME.docx };
   }
   if (d.tipo === 'casas') {

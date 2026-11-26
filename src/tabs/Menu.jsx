@@ -26,7 +26,7 @@ export default function Menu({ menu, resultado, dicExtra, setDicExtra, onMenu, o
     <section className="wrap" aria-labelledby="t-menu">
       <div className="intro">
         <h2 id="t-menu">Menú del nutricionista</h2>
-        <p>Sube el menú como lo llena cocina. La app quita las cantidades, pone la bebida en las cenas, corrige la ortografía y te devuelve el mismo Excel listo para firmar.</p>
+        <p>Sube el menú como lo llena cocina. La app quita las cantidades y lo que diga “en casa”, pone la bebida en las cenas, corrige la ortografía y te devuelve un Excel con una sola hoja: el menú en una página, con las firmas de la coordinadora y del doctor abajo.</p>
       </div>
       <div className="uploads">
         <Subir etiqueta="Menú de la quincena" tipo="xlsx" estado={menu} onArchivo={onMenu} ayuda="El Excel del menú (.xlsx)" />
@@ -34,7 +34,7 @@ export default function Menu({ menu, resultado, dicExtra, setDicExtra, onMenu, o
       {!info && menu.estado !== 'error' && (
         <div className="empty">
           <b>Sube el menú para empezar</b>
-          Solo se cambia la hoja “Meal Planner”. Las demás hojas, colores y firmas se quedan igual.
+          El Excel que descargas trae solo la hoja del menú, lista para imprimir en una hoja con las firmas abajo.
         </div>
       )}
       {info && resultado && (
@@ -62,9 +62,10 @@ export default function Menu({ menu, resultado, dicExtra, setDicExtra, onMenu, o
           <div className="counts">
             {[
               [c.cantidad, 'cantidades quitadas'],
+              [c.casa, '“en casa” quitados'],
               [c.bebida, 'bebidas en la cena'],
               [c.ortografia, 'palabras corregidas'],
-              [c.sueltos, 'números sueltos borrados']
+              [c.sueltos, 'notas sueltas borradas']
             ].map(([n, l]) => (
               <span className="cnt" key={l}>
                 <b>{n}</b> {l}
@@ -173,11 +174,16 @@ export default function Menu({ menu, resultado, dicExtra, setDicExtra, onMenu, o
               {msg && <p className="hint">{msg}</p>}
             </div>
             <div className="panel">
-              <h3>Lo que no se toca</h3>
+              <h3>Cómo queda el Excel</h3>
               <ul className="keep">
-                {info.otrasHojas.length > 0 && <li>Las hojas {info.otrasHojas.map((h) => `“${h}”`).join(', ')}</li>}
-                <li>Colores, tamaños de letra y bordes</li>
-                <li>El título y las firmas</li>
+                <li>Empieza con el menú y es la única hoja{info.otrasHojas.length > 0 ? ` (se quitan ${info.otrasHojas.map((h) => `“${h}”`).join(', ')})` : ''}</li>
+                <li>Sale en una sola página al imprimir</li>
+                <li>
+                  <span>
+                    Abajo, las firmas: <b>{info.firmas ? info.firmas.coordinadora : 'Jauna Reeger'}</b> ({info.firmas ? info.firmas.cargo : 'Coordinadora'}) y <b>{info.firmas ? info.firmas.doctor : 'Doctor(a)'}</b>
+                  </span>
+                </li>
+                <li>Colores, tamaños de letra, bordes y el título se quedan igual</li>
                 <li>Sopas, cremas y consomés se quedan sin bebida</li>
               </ul>
             </div>

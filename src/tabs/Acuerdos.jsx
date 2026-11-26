@@ -3,7 +3,7 @@ import Subir from '../components/Subir.jsx';
 import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import Personal from '../components/Personal.jsx';
 import Desconocidos from '../components/Desconocidos.jsx';
-import { acuerdosElegidos, claveFinde, estaElegido, listo, vistaPrevia } from '../lib/seleccion.js';
+import { acuerdosElegidos, claveFinde, estaElegido, listo, vistaPrevia, auxConMuchosFindes, TOPE_FINDES_AUX } from '../lib/seleccion.js';
 import { finDeSemanaCorto, finDeSemanaLargo, MESES } from '../lib/text.js';
 import { cedulaValida, fijoEn, mesDe } from '../lib/personal.js';
 import { esOtro, nombreOtro } from '../lib/horarioApp.js';
@@ -63,12 +63,13 @@ function FormCedula({ persona, onGuardar, onCancelar }) {
   );
 }
 
-export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, nube, over, setOver, onHorario, onHorarioApp, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, aviso }) {
+export default function Acuerdos({ horario, analisis, errorAnalisis, word, personal, setPersonal, nube, over, setOver, onHorario, onHorarioApp, onWord, onDescargar, onExcelPagos, generando, generandoExcel, mantener, setMantener, porPersona = true, setPorPersona = () => {}, aviso }) {
   const [abierto, setAbierto] = useState(null);
   const [verIdx, setVerIdx] = useState(0);
   const porId = useMemo(() => new Map(personal.map((p) => [p.id, p])), [personal]);
   const lista = useMemo(() => acuerdosElegidos(analisis, personal, over), [analisis, personal, over]);
   const monto = word.info?.monto || 60;
+  const muchos = useMemo(() => auxConMuchosFindes(analisis, personal), [analisis, personal]);
   const total = lista.length * monto;
   const personas = new Set(lista.map((a) => a.persona.id)).size;
   const viejos = word.info && analisis ? word.info.quedanPara(analisis.mes, analisis.anio) : 0;
@@ -155,6 +156,22 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
               </button>
             </div>
           </div>
+
+          {muchos.length > 0 && (
+            <div className="alert warn" id="ac-muchos" role="status">
+              <b>
+                ⚠️ {muchos.length === 1 ? 'Un auxiliar trabaja' : `${muchos.length} auxiliares trabajan`} más de {TOPE_FINDES_AUX} fines de semana este mes
+              </b>
+              <ul>
+                {muchos.map((m) => (
+                  <li key={m.id}>
+                    <b>{m.nombre}</b>: {m.findes.length} fines de semana ({m.findes.map((f) => `${f.sabado.getDate()}–${f.domingo.getDate()} ${MESES[f.domingo.getMonth()].slice(0, 3)}`).join(', ')})
+                  </li>
+                ))}
+              </ul>
+              <span>Revisa que esté bien antes de hacer los acuerdos. Si no, cámbialo en el Horario.</span>
+            </div>
+          )}
 
           <div className="cols">
             <div className="panel">
@@ -293,6 +310,10 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                   </tfoot>
                 </table>
               </div>
+              <label className="check">
+                <input type="checkbox" id="ac-por-persona" checked={porPersona} onChange={(e) => setPorPersona(e.target.checked)} />
+                <span>Para imprimir a doble cara: ordenar el Word por persona (todos sus fines de semana juntos) y que cada persona empiece en una hoja nueva. Word pone una página en blanco de separación cuando hace falta.</span>
+              </label>
               {word.info && (
                 <label className="check">
                   <input type="checkbox" checked={mantener} onChange={(e) => setMantener(e.target.checked)} />

@@ -2,7 +2,7 @@ import { CASAS, fijoEn } from '../personal.js';
 import { armarEquipos, separar, filtrar, cortesDe, resumenGrupo, textoGrupos, sexoDe } from '../equipos.js';
 import { edadDe } from '../documentos.js';
 import { aAnalisis, normalizarConfig, normalizarHorario } from '../horarioApp.js';
-import { acuerdosElegidos, listo } from '../seleccion.js';
+import { acuerdosElegidos, listo, auxConMuchosFindes, TOPE_FINDES_AUX } from '../seleccion.js';
 import { hojasDelFinde } from '../casas.js';
 import { reporte } from '../ausencias.js';
 import { MESES_P, MESES_EN, DIAS_EN, DIAS_BONITO, claveDe, finDeSemana } from './fechas.js';
@@ -117,6 +117,8 @@ export async function acuerdosDoc(e, datos, T, soloPagos = false) {
     { p: E ? `**Work agreements · ${titulo}**: ${lista.length} agreements for ${porPersona.size} people · total **$${total.toLocaleString('en-US')}**` : `**Acuerdos de ${titulo}**: ${lista.length} acuerdos de ${porPersona.size} personas · total **$${total.toLocaleString('en-US')}**` },
     { ul: Array.from(porPersona.values()).map((x) => `**${x.p.nombre}** · ${x.findes.map((f) => rangoFinde(f, E)).join(', ')}`) }
   ];
+  const muchos = auxConMuchosFindes(an, personal);
+  if (muchos.length) partes.push({ p: E ? `⚠️ Working more than ${TOPE_FINDES_AUX} weekends: ${muchos.map((m) => `**${m.nombre}** (${m.findes.length})`).join(', ')}. Check it’s right.` : `⚠️ Trabajan más de ${TOPE_FINDES_AUX} fines de semana: ${muchos.map((m) => `**${m.nombre}** (${m.findes.length})`).join(', ')}. Revisa que esté bien.` });
   if (faltan.size) partes.push({ p: E ? `Not included because they're missing full name or ID number: ${Array.from(faltan).join(', ')}. Fill it in Acuerdos → Personal.` : `No entran porque les falta el nombre completo o la cédula: ${Array.from(faltan).join(', ')}. Se completa en Acuerdos → Personal.` });
   partes.push({ p: E ? 'Regulars come in automatically; to add or remove extras, open Acuerdos.' : 'Los fijos entran solos; para agregar o quitar extras, ábrelo en Acuerdos.' });
   const botones = [];
@@ -166,12 +168,12 @@ export function menuDoc(e, datos, T) {
   const of = (datos.oficina && datos.oficina()) || {};
   if (of.menu && of.menu.estado === 'listo') {
     return {
-      partes: [{ p: E ? `I have the menu you uploaded (**${of.menu.nombre}**). Here it is, cleaned up:` : `Tengo el menú que subiste (**${of.menu.nombre}**). Aquí está limpio:` }],
+      partes: [{ p: E ? `I have the menu you uploaded (**${of.menu.nombre}**). Here it is, cleaned up: just the menu sheet on one page, with the signatures at the bottom.` : `Tengo el menú que subiste (**${of.menu.nombre}**). Aquí está limpio: solo la hoja del menú en una página, con las firmas abajo.` }],
       botones: [baja(E ? 'Download clean menu' : 'Descargar menú limpio', { tipo: 'menu' }), { t: E ? 'Use another Excel' : 'Usar otro Excel', pedirArchivo: { tipo: 'menu', luego: { tipo: 'menu' } } }]
     };
   }
   return {
-    partes: [{ p: E ? 'Upload the **fortnight menu Excel** here 📎 and I’ll give it back cleaned up (spelling, capitals and format), same as the Menú tab.' : 'Súbeme aquí 📎 el **Excel del menú de la quincena** y te lo devuelvo limpio (ortografía, mayúsculas y formato), igual que en la pestaña Menú.' }],
+    partes: [{ p: E ? 'Upload the **fortnight menu Excel** here 📎 and I’ll give it back ready to sign: no amounts, nothing saying “en casa”, only the menu sheet on one page and the signatures at the bottom, same as the Menú tab.' : 'Súbeme aquí 📎 el **Excel del menú de la quincena** y te lo devuelvo listo para firmar: sin cantidades, sin “en casa”, solo la hoja del menú en una página y las firmas abajo, igual que en la pestaña Menú.' }],
     botones: [{ t: E ? 'Upload the menu Excel' : 'Subir el Excel del menú', pedirArchivo: { tipo: 'menu', luego: { tipo: 'menu' } } }, ir('menu', E ? 'Open Menú' : 'Abrir Menú')]
   };
 }

@@ -26,7 +26,7 @@ import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.25';
+const VERSION = '1.27';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -53,6 +53,21 @@ export default function App() {
   const [over, setOver] = useState({});
   const [marcas, setMarcas] = useState({});
   const [mantener, setMantener] = useState(true);
+  const [porPersona, setPorPersonaEstado] = useState(() => {
+    try {
+      return localStorage.getItem('oficina-hacienda.acuerdos.porPersona') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const setPorPersona = (v) => {
+    setPorPersonaEstado(v);
+    try {
+      localStorage.setItem('oficina-hacienda.acuerdos.porPersona', v ? '1' : '0');
+    } catch {
+      return;
+    }
+  };
   const [dicExtra, setDicExtraState] = useState(cargarDic);
   const [generando, setGenerando] = useState('');
   const [aviso, setAviso] = useState('');
@@ -266,7 +281,7 @@ export default function App() {
     setGenerando('word');
     try {
       const w = await leerWord(word.bytes.slice(), JSZip);
-      const out = await generarWord(w, lista.map((a) => ({ completo: a.completo, cedula: a.cedula, sabado: a.sabado })), { mes: analisis.mes, anio: analisis.anio, mantenerViejos: mantener });
+      const out = await generarWord(w, lista.map((a) => ({ completo: a.completo, cedula: a.cedula, sabado: a.sabado })), { mes: analisis.mes, anio: analisis.anio, mantenerViejos: mantener, porPersona });
       descargar(out, nombreSeguro(`ACUERDOS DE TRABAJO ${MESES[analisis.mes].toUpperCase()} ${analisis.anio}.docx`), MIME.docx);
       setToast(`Listo: se descargó el Word con ${lista.length} acuerdos.`);
     } catch (e) {
@@ -327,7 +342,7 @@ export default function App() {
     }
   };
 
-  oficinaRef.current = { word, menu, over, marcas, mantener, dicExtra, claveCargada: horario.app ? horario.app.clave : null };
+  oficinaRef.current = { word, menu, over, marcas, mantener, porPersona, dicExtra, claveCargada: horario.app ? horario.app.clave : null };
   const resultadoMenu = useMemo(() => (menu.info ? previsualizarMenu(menu.info, dicExtra) : null), [menu.info, dicExtra]);
 
   const onDescargarMenu = async () => {
@@ -408,6 +423,8 @@ export default function App() {
             onExcelPagos={onExcelPagos}
             mantener={mantener}
             setMantener={setMantener}
+            porPersona={porPersona}
+            setPorPersona={setPorPersona}
             aviso={aviso}
           />
         )}

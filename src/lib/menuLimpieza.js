@@ -32,16 +32,38 @@ const CON_BEBIDA = /(\+\s*(te|té|refresco|cafe|café|jugo|chocolate|colada|lech
 const SIEMPRE_REFRESCO = /(^|[^a-z])(pizza|hamburguesa|hot ?dog|salchipapa)/;
 const SIN_CAMBIO = /^(no|colegio|cena villa|villa|cena en la villa)$/;
 
+const L = 'a-záéíóúñü';
+const NUM = `(?:\\d+(?:[.,/]\\d+)?\\s*|[½¼¾]\\s*|(?:media|medio|una?|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce)\\s+)`;
+const PESO = '(?:libras?|lbs?|kilogramos?|kilos?|kg|gramos?|grs?|g|onzas?|oz)';
+const MEDIDA = '(?:tazas?|cucharadas?|cucharaditas?|cdas?|cditas?|litros?|lts?|l|mililitros?|ml|unidades?|unds?|u|paquetes?|fundas?|latas?|docenas?|porciones?|bandejas?|cubetas?|cartones?|sobres?|botellas?|galones?|atados?|racimos?|manojos?)';
+const POR = '(?:chic[oa]s?|niñ[oa]s?|nin[oa]s?|personas?|cabezas?|casas?)';
+
+export const EN_CASA = new RegExp(`\\s*-?\\s*(?<![${L}])(?:hech[oa]s?\\s+en\\s+(?:la\\s+)?casa|en\\s+(?:la\\s+)?casa|caser[oa]s?)(?![${L}])`, 'gi');
+
 const CANTIDADES = [
   [/\(\s*[^)]*\)?/g, ''],
   [/\s+-\s*[a-záéíóúñ ]+$/i, ''],
-  [/(^|\s)\d+(?:[.,]\d+)?\s*(?:libras?|lbs?|kg|kilos?|gramos?|gr)(?![a-z])(?:\s+de\s+[a-záéíóúñ]+(?:\s+(?:fileteada|fileteado|molida|molido|picada|picado|entera|entero))?)?/gi, '$1'],
-  [/(^|\s)\d+\s*huevos?\s+por\s+(?:chicos?|niños?|ninos?|persona|cabeza)\b/gi, '$1'],
+  [new RegExp(`(^|\\s)${NUM}${PESO}(?![${L}])(?:\\s+de\\s+[${L}]+(?:\\s+(?:fileteada|fileteado|molida|molido|picada|picado|entera|entero|sin hueso|con hueso))?)?`, 'gi'), '$1'],
+  [new RegExp(`(^|\\s)(?:\\d+|una?|dos|tres|cuatro)\\s+[${L}]+\\s+(?:por|x)\\s+${POR}(?![${L}])`, 'gi'), '$1'],
+  [new RegExp(`\\s+(?:por|x)\\s+${POR}(?![${L}])`, 'gi'), ''],
+  [
+    new RegExp(`(^|\\s)${NUM}${MEDIDA}(?![${L}])(?:\\s+de\\s+([${L}]+))?`, 'gi'),
+    (todo, ini, cosa, pos, txt) => {
+      if (!cosa) return ini;
+      const antes = txt.slice(0, pos).toLowerCase();
+      return new RegExp(`(^|[^${L}])${cosa.toLowerCase()}(?![${L}])`).test(antes) ? ini : `${ini}${cosa}`;
+    }
+  ],
   [/(^|\s)\d+\s*pechugas?\s+(de\s+)/gi, '$1$2'],
   [/\s+\d+\s*(?:pollos?|cuerpos?)(?![a-z]).*$/i, ''],
   [/(^|\s)(?:1\/2|½|medio|media|un|una)\s+(queso|pollo)(?![a-z])/gi, '$1$2'],
-  [/(queso)\s+fresco/gi, '$1']
+  [/(pollo)\s+enter[oa](?![a-z])/gi, '$1'],
+  [/(queso)\s+fresco/gi, '$1'],
+  [/(^|\s)x\s*\d+(?![\d.,])|(^|\s)\d+\s*x(?![a-z])/gi, '$1$2'],
+  [/(^|[\s,;])\d+(?:[.,/]\d+)?(?=$|[\s,;.])/g, '$1']
 ];
+
+const CONECTOR_FINAL = /\s+(y|e|con|de|en|al|a|para|por)$/i;
 
 const limpiarEspacios = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -62,9 +84,15 @@ export function limpiarCelda(crudo, { cena = false, siguienteBebida, diccionario
   const original = limpiarEspacios(crudo);
   if (!original) return { valor: '', cambio: false, log };
   let s = original;
+  const sinCasa = limpiarEspacios(s.replace(EN_CASA, ' '));
+  if (sinCasa !== s) {
+    log.push(['casa', s, sinCasa]);
+    s = sinCasa;
+  }
   let q = s;
   for (const [re, rep] of CANTIDADES) q = q.replace(re, rep);
-  q = limpiarEspacios(q).replace(/\s+(y|con|de)$/i, '').replace(/^[,;\s]+|[,;\s]+$/g, '');
+  q = limpiarEspacios(q);
+  for (let i = 0; i < 4; i++) q = q.replace(CONECTOR_FINAL, '').replace(/^[,;+\-\s]+|[,;+\-\s]+$/g, '');
   if (q !== s) log.push(['cantidad', s, q]);
   s = q.toLowerCase();
   s = corregir(s, diccionario, log);
@@ -81,7 +109,7 @@ export function limpiarCelda(crudo, { cena = false, siguienteBebida, diccionario
 export function limpiarMenu(filas, diccionario = ORTOGRAFIA_BASE) {
   let alterna = 0;
   const siguienteBebida = () => (alterna++ % 2 === 0 ? 'te' : 'refresco');
-  const conteo = { cantidad: 0, bebida: 0, ortografia: 0, revisar: 0, sueltos: 0 };
+  const conteo = { cantidad: 0, casa: 0, bebida: 0, ortografia: 0, revisar: 0, sueltos: 0 };
   const salida = filas.map((f) => {
     const dia = limpiarEspacios(f.dia).toLowerCase();
     const comidas = f.comidas.map((c) => {

@@ -73,3 +73,26 @@ export function tapar(c) {
   const s = String(c || '');
   return s.length >= 10 ? s.slice(0, 2) + '••••••' + s.slice(-2) : s;
 }
+
+export const TOPE_FINDES_AUX = 3;
+
+export function auxConMuchosFindes(analisis, personal, tope = TOPE_FINDES_AUX) {
+  if (!analisis) return [];
+  const porId = new Map(personal.map((p) => [p.id, p]));
+  const cuenta = new Map();
+  for (const f of analisis.findes) {
+    for (const id of new Set(Object.values(f.casas).flat())) {
+      if (!cuenta.has(id)) cuenta.set(id, []);
+      cuenta.get(id).push(f);
+    }
+  }
+  const out = [];
+  for (const [id, findes] of cuenta) {
+    const p = porId.get(id);
+    if (!p || findes.length <= tope) continue;
+    const esPadre = p.hor ? p.hor.rol === 'padre' : !!(p.fijo && p.casa);
+    if (esPadre) continue;
+    out.push({ id, nombre: p.nombre, findes });
+  }
+  return out.sort((a, b) => b.findes.length - a.findes.length || a.nombre.localeCompare(b.nombre, 'es'));
+}

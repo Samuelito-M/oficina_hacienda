@@ -4,7 +4,7 @@ App para la oficina de Hacienda of Hope. Hace cuatro cosas:
 
 1. **Acuerdos de fin de semana**: lee el horario del mes (PDF o Excel) y el Word de acuerdos del mes pasado, y arma el Word nuevo y un Excel de pagos para contabilidad.
 2. **Cambio de casa**: con el mismo horario arma las hojas de cambio de casa de cada fin de semana, en PDF.
-3. **Menú del nutricionista**: limpia el Excel del menú (quita cantidades, pone bebida en las cenas, corrige ortografía).
+3. **Menú del nutricionista**: limpia el Excel del menú (quita cantidades y lo que diga "en casa", pone bebida en las cenas, corrige ortografía) y lo deja con una sola hoja, en una página, con las firmas de la coordinadora y del doctor abajo.
 4. **Niños**: lista de los niños con foto, cumpleaños, edad y tallas. Tiene clave y los datos viven en una hoja de Google de Hacienda. Desde ahí salen el resumen de tallas, las hojas de regalos, el directorio, los cumpleaños del mes y la lista en PDF o Excel. Con **Equipos** se separan los niños por niñas/niños, edad o casa, o se arman equipos parejos (mezclando niños y niñas, edades parecidas y hermanos separados), y se descargan en PDF o se copian para WhatsApp.
 5. **Horario**: arma el horario del mes de las casas siguiendo las reglas (padres de casa un fin de semana sí y uno no, auxiliares con su día de descanso y 3 fines de semana, casas permitidas y preferidas por persona, on call después del fin de semana trabajado). Se cambia tocando cada casilla, avisa si falta gente o si se rompe una regla, y se descarga en PDF o Excel. Las reglas y el personal se editan en **Personal y reglas**. Se guarda en la hoja de Google (misma clave de Niños) y Acuerdos y Cambio de casa lo pueden usar sin subir archivo.
 
@@ -32,7 +32,7 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 **Menú**
 1. Sube el Excel del menú.
 2. Revisa la tabla (botón "Como llegó" para comparar) y las celdas para revisar.
-3. Descarga el Excel limpio.
+3. Descarga el Excel limpio. Trae solo la hoja del menú (las otras hojas se quitan), sale en una sola página al imprimir y abajo tiene las firmas: Jauna Reeger como coordinadora y el espacio del doctor. Si el Excel ya traía esas firmas, se respetan los nombres y cargos que tenía.
 
 ## Configurar la sección Niños (una sola vez)
 
@@ -53,6 +53,8 @@ Acuerdos, Cambio de casa y Menú pasan en el navegador: los archivos no se suben
 **Completar la última semana con el mes siguiente:** en Horario, si el mes no termina en domingo, marca **Completar la semana con [mes siguiente]**. Salen los días del mes siguiente hasta el domingo (en la última semana y en la vista Mes); se llenan con **Completar lo que falta** o a mano, y al guardar se guardan en el mes siguiente. También salen en el PDF y el Excel (Acuerdos los ignora al leer el archivo). La opción se recuerda en cada computadora.
 
 **Otra persona (que no está en el personal):** al elegir quién trabaja un día, toca **+ Otra persona**, escribe el nombre y **Agregar**. Sale ese día en el horario, el PDF y el Excel, pero no cuenta para acuerdos, cambio de casa ni reglas. Después aparece en la lista de ese mes para elegirla rápido.
+
+**Acuerdos para imprimir a doble cara:** la casilla **ordenar el Word por persona** (marcada por defecto, se recuerda en cada computadora) junta todos los fines de semana de cada persona, ordenados por nombre, y termina cada persona con un salto de sección “a página impar”: Word pone una página en blanco solo cuando la persona tiene un número impar de páginas, así la siguiente empieza en el frente de una hoja nueva. Los acuerdos viejos que se conservan van con su persona. Además, si un auxiliar trabaja más de 3 fines de semana en el mes, Acuerdos (y Sam Jr.) muestran un aviso con sus fechas; los padres de casa no se cuentan.
 
 **Sam Jr. hace los documentos de la oficina:** se le pide en el chat y arma el archivo con las mismas funciones de cada pestaña: equipos y grupos de niños (“dame 2 equipos de niños de 5 a 10 años”, con PDF, copiar para WhatsApp y otra mezcla), acuerdos de trabajo en Word y Excel de pagos (usa los extras marcados en Acuerdos; si falta el Word del mes pasado lo pide por el clip 📎), hojas de cambio de casa de un fin de semana, menú limpio (subiendo el Excel por 📎), hojas de regalos, directorio, cumpleaños del mes en PDF, horario, listas y reporte de ausencias. Para cambiar datos (armar o guardar el horario, poner ausencias) lleva a la pantalla correcta.
 

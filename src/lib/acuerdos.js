@@ -144,7 +144,37 @@ export function bloquesQueSeQuedan(word, mes, anio) {
   });
 }
 
-export async function generarWord(word, acuerdos, { mes, anio, mantenerViejos = true }) {
+function terminarSeccion(nodos, sectPrBase, doc) {
+  const sp = sectPrBase ? sectPrBase.cloneNode(true) : doc.createElementNS(W_NS, 'w:sectPr');
+  for (const pg of porTag(sp, 'w:pgNumType')) pg.removeAttribute('w:start');
+  for (const t of porTag(sp, 'w:type')) t.parentNode.removeChild(t);
+  const tipo = doc.createElementNS(W_NS, 'w:type');
+  tipo.setAttribute('w:val', 'oddPage');
+  let ref = null;
+  for (const c of hijos(sp)) {
+    if (!['w:headerReference', 'w:footerReference', 'w:footnotePr', 'w:endnotePr'].includes(c.nodeName)) {
+      ref = c;
+      break;
+    }
+  }
+  sp.insertBefore(tipo, ref);
+  let ultimo = nodos[nodos.length - 1];
+  if (!ultimo || ultimo.nodeName !== 'w:p') {
+    ultimo = doc.createElementNS(W_NS, 'w:p');
+    nodos.push(ultimo);
+  }
+  let pPr = hijo(ultimo, 'w:pPr');
+  if (!pPr) {
+    pPr = doc.createElementNS(W_NS, 'w:pPr');
+    ultimo.insertBefore(pPr, ultimo.firstChild);
+  }
+  const viejo = hijo(pPr, 'w:sectPr');
+  if (viejo) pPr.removeChild(viejo);
+  const cambio = hijo(pPr, 'w:pPrChange');
+  pPr.insertBefore(sp, cambio || null);
+}
+
+export async function generarWord(word, acuerdos, { mes, anio, mantenerViejos = true, porPersona = false }) {
   const { zip, doc, body, preambulo, sectPr, plantilla } = word;
   const usados = new Set();
   for (const p of porTag(doc, 'w:p')) {
@@ -228,19 +258,45 @@ export async function generarWord(word, acuerdos, { mes, anio, mantenerViejos = 
         el.setAttribute('w:val', mapa.get(viejo));
       }
     }
-    nuevos.push(clon);
+    nuevos.push({ nodos: clon, cedula: a.cedula, completo: a.completo, sabado: sab });
   }
 
-  const viejos = mantenerViejos ? bloquesQueSeQuedan(word, mes, anio).map((b) => b.nodos) : [];
-  const todos = [...nuevos, ...viejos];
-  if (!todos.length) throw new WordError('No hay acuerdos para poner en el Word.');
+  const quedan = mantenerViejos ? bloquesQueSeQuedan(word, mes, anio) : [];
+  const viejos = quedan.map((b) => b.nodos);
+  if (!nuevos.length && !viejos.length) throw new WordError('No hay acuerdos para poner en el Word.');
+  let grupos;
+  if (porPersona) {
+    const porCedula = new Map();
+    for (const x of nuevos) {
+      if (!porCedula.has(x.cedula)) porCedula.set(x.cedula, []);
+      porCedula.get(x.cedula).push(x);
+    }
+    const ordenados = Array.from(porCedula.values()).sort((a, b) => a[0].completo.localeCompare(b[0].completo, 'es'));
+    grupos = ordenados.map((g) => g.sort((a, b) => a.sabado - b.sabado).map((x) => x.nodos));
+    const indice = new Map(ordenados.map((g, i) => [g[0].cedula, i]));
+    const viejosPor = new Map();
+    quedan.forEach((b, i) => {
+      if (b.cedula && indice.has(b.cedula)) {
+        grupos[indice.get(b.cedula)].push(b.nodos);
+        return;
+      }
+      const k = b.cedula || b.completo || `#${i}`;
+      if (!viejosPor.has(k)) viejosPor.set(k, []);
+      viejosPor.get(k).push(b.nodos);
+    });
+    for (const g of viejosPor.values()) grupos.push(g);
+  } else grupos = [[...nuevos.map((x) => x.nodos), ...viejos]];
 
   while (body.firstChild) body.removeChild(body.firstChild);
   for (const n of preambulo) body.appendChild(n);
-  todos.forEach((nodos, i) => {
-    const p = primerParrafo(nodos);
-    if (p) ponerSaltoAntes(p, i > 0 || preambulo.some((n) => textoParrafo(n).trim()));
-    for (const n of nodos) body.appendChild(n);
+  const hayPreambulo = preambulo.some((n) => textoParrafo(n).trim());
+  grupos.forEach((bloques, gi) => {
+    bloques.forEach((nodos, bi) => {
+      const p = primerParrafo(nodos);
+      if (p) ponerSaltoAntes(p, porPersona ? bi > 0 || (gi === 0 && hayPreambulo) : gi + bi > 0 || hayPreambulo);
+    });
+    if (porPersona && gi < grupos.length - 1) terminarSeccion(bloques[bloques.length - 1], sectPr, doc);
+    for (const nodos of bloques) for (const n of nodos) body.appendChild(n);
   });
   if (sectPr) body.appendChild(sectPr);
 
