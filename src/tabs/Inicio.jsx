@@ -170,7 +170,7 @@ export default function Inicio({ personal, onHorarioApp, irAHorario }) {
                   </li>
                 ))}
               </ul>
-              {finde.oncall.length > 0 && <p className="hint">On call de lunes a jueves: {lista(finde.oncall)}</p>}
+              {finde.oncall.length > 0 && <p className="hint">On call de viernes a jueves: {lista(finde.oncall)}</p>}
             </>
           )}
         </Tarjeta>

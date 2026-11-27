@@ -214,7 +214,6 @@ export default function Acuerdos({ horario, analisis, errorAnalisis, word, perso
                             {ids.map((id) => {
                               const p = porId.get(id);
                               if (!p) return null;
-                              const k = `${claveFinde(f)}|${id}`;
                               if (!listo(p))
                                 return (
                                   <button key={id} className="chip miss" onClick={() => alternar(f, p)} aria-label={`${p.nombre}: falta cédula, toca para agregarla`}>

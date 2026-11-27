@@ -15,6 +15,7 @@ import { descargar, extension, leerBytes } from '../lib/archivos.js';
 import { leerMenu } from '../lib/menu.js';
 import { mesPorDefecto } from '../lib/asistente/datosChat.js';
 import { crearDescarga } from '../lib/asistente/descargas.js';
+import { textoResultadoAccion } from '../lib/asistente/accionesChat.js';
 
 const PARECE_DATO = /\b(quien|quienes|cumple|talla|tallas|zapatos|ropa|oncall|descansa|trabaja|trabajan|edad|anos tiene|ninos hay|cambiocasa)\b/;
 const VIGENCIA = 60000;
@@ -63,8 +64,8 @@ function Respuesta({ r, onBoton, onPregunta }) {
       {r.botones && r.botones.length > 0 && (
         <div className="as-botones">
           {r.botones.map((b, i) => (
-            <button key={i} type="button" className={`as-ir${b.descarga ? ' as-bajar' : ''}`} onClick={() => onBoton(b)}>
-              {b.descarga ? `⬇ ${b.t}` : `${b.t} →`}
+            <button key={i} type="button" className={`as-ir${b.descarga ? ' as-bajar' : ''}${b.hacer ? ' as-hacer' : ''}`} onClick={() => onBoton(b)}>
+              {b.descarga ? `⬇ ${b.t}` : b.hacer ? b.t : `${b.t} →`}
             </button>
           ))}
         </div>
@@ -100,7 +101,7 @@ function idiomaInicial() {
 
 const BIENVENIDA = { de: 'bot', bienvenida: true };
 
-export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, tab, oficina, onWordArchivo, onMenuArchivo }) {
+export default function Asistente({ personal, onHorarioApp, irAHorario, onAccion, vivo, tab, oficina, onWordArchivo, onMenuArchivo }) {
   const [abierto, setAbierto] = useState(false);
   const [lang, setLangState] = useState(idiomaInicial);
   const L = UI[lang];
@@ -185,7 +186,7 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
     return cache.current.casas || [];
   };
   const verOficina = () => (oficina && oficina.current) || {};
-  const datosPara = (usa, hoy, ninos) => ({ hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])), mesActivo: tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null, oficina: verOficina });
+  const datosPara = (usa, hoy, ninos) => ({ hoy, idioma: usa, personal: personalRef.current, horario, cargarNinos, ninosLista: ninos, ninosPorId: new Map(ninos.map((n) => [n.id, n])), mesActivo: tab === 'horario' && vivo && vivo.current ? vivo.current.clave : null, mesHorario: vivo && vivo.current ? vivo.current.clave : null, oficina: verOficina });
 
   const preparar = async () => {
     const hoy = new Date();
@@ -225,8 +226,11 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
       }
       const ninos = nombres.ninos || [];
       const r = await responder(e, datosPara(usa, hoy, ninos));
-      if (e.tipo !== 'no_entendi') contexto.current = e;
-      if (r) setMensajes((m) => [...m, { de: 'bot', r }]);
+      if (e.tipo !== 'no_entendi' && e.tipo !== 'accion') contexto.current = e;
+      if (r && r.hacerYa) {
+        setPensando(false);
+        await ejecutar(r.hacerYa, r, usa);
+      } else if (r) setMensajes((m) => [...m, { de: 'bot', r }]);
     } catch (err) {
       const U = UI[detectar(t) || lang];
       if (err.codigo === 'sesion') {
@@ -327,7 +331,38 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, vivo, ta
     }
   };
 
+  const hechos = useRef(new Set());
+  const ejecutar = async (a, r, usa = lang) => {
+    const E = usa === 'en';
+    if (!onAccion) return decir(E ? 'I can’t change the schedule from here.' : 'Desde aquí no puedo cambiar el horario.');
+    const llave = a.clave || JSON.stringify(a);
+    if (a.unaVez && hechos.current.has(llave)) return decir(E ? 'I already did that.' : 'Eso ya lo hice.');
+    setPensando(true);
+    let res;
+    try {
+      res = await onAccion(a);
+      await new Promise((ok) => setTimeout(ok, 150));
+    } catch (err) {
+      console.error(err);
+      res = { ok: false, error: 'error' };
+    } finally {
+      setPensando(false);
+    }
+    cache.current.horarios.delete(a.mes);
+    if (!res.ok) return decir(textoResultadoAccion(res, a, E));
+    if (a.unaVez) hechos.current.add(llave);
+    const ver = { t: E ? 'See the Schedule' : 'Ver el Horario', ir: 'horario', mes: a.mes };
+    if (a.tipo === 'guardar') return decir(E ? 'Saved ✅. Agreements and House changes can use it now.' : 'Guardado ✅. Acuerdos y Cambio de casa ya pueden usarlo.');
+    if (a.tipo === 'deshacer' || a.tipo === 'restaurar') return decir(E ? 'Undone ↩️. It’s back to how it was.' : 'Listo, lo deshice ↩️. Quedó como estaba.', { botones: [ver] });
+    const guardar = { t: E ? 'Save' : 'Guardar', hacer: { tipo: 'guardar', mes: a.mes } };
+    const atras = { t: E ? 'Undo' : 'Deshacer', hacer: { tipo: 'deshacer', mes: a.mes } };
+    if (a.tipo === 'armar') return decir(res.mensaje || (E ? 'Done.' : 'Listo.'), { botones: [guardar, atras] });
+    const partes = r ? r.partes : [{ p: a.listo || (E ? 'Done ✅.' : 'Listo ✅.') }];
+    setMensajes((m) => [...m, { de: 'bot', r: { partes, botones: [guardar, atras, ver] } }]);
+  };
+
   const boton = (b) => {
+    if (b.hacer) return ejecutar({ ...b.hacer, unaVez: b.hacer.tipo === 'ausencia', clave: b.hacer.tipo === 'ausencia' ? JSON.stringify(b.hacer) : undefined }, null);
     if (b.descarga) return bajar(b.descarga);
     if (b.pedirArchivo) return pedirArchivo(b.pedirArchivo);
     if (b.repetir) return repetir(b.repetir);

@@ -10,7 +10,7 @@ export function finDeSemana(hoy) {
   const h = soloFecha(hoy);
   const wd = h.getDay();
   const viernes = wd === 5 ? h : wd === 6 ? mas(h, -1) : wd === 0 ? mas(h, -2) : mas(h, (5 - wd + 7) % 7);
-  return { viernes, sabado: mas(viernes, 1), domingo: mas(viernes, 2), semana: [3, 4, 5, 6].map((n) => mas(viernes, n)) };
+  return { viernes, sabado: mas(viernes, 1), domingo: mas(viernes, 2), semana: [0, 1, 2, 3, 4, 5, 6].map((n) => mas(viernes, n)) };
 }
 
 export function proximosCumples(cumples, hoy, dias = 14) {

@@ -10,7 +10,8 @@ export const DIAS_SEM = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 export const DIAS_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 export const ROLES = { padre: 'Padre o madre de casa', aux: 'Auxiliar', finde: 'Auxiliar solo de fin de semana' };
 export const REGLAS_DESDE = '2026-12';
-export const REGLAS_BASE = { findesPadres: 2, findesAux: 3, sinPadres: 2, extraFinde: true, auxMin: { 'Casa 1': 1, 'Casa 2': 0, 'Casa 3': 1, 'Casa 4': 1, 'Casa Esther': 1 } };
+export const OC_DEFECTO = 'Jauna';
+export const REGLAS_BASE = { findesPadres: 2, findesAux: 3, sinPadres: 2, extraFinde: true, ocDef: OC_DEFECTO, auxMin: { 'Casa 1': 1, 'Casa 2': 0, 'Casa 3': 1, 'Casa 4': 1, 'Casa Esther': 1 } };
 const FINDE = [5, 6, 0];
 const TODOS = [0, 1, 2, 3, 4, 5, 6];
 const sin = (w) => TODOS.filter((x) => x !== w);
@@ -80,7 +81,7 @@ export function normalizarConfig(c) {
   const r = c.reglas || {};
   const auxMin = {};
   for (const casa of CASAS) auxMin[casa] = numero(r.auxMin && r.auxMin[casa], REGLAS_BASE.auxMin[casa], 4);
-  return { v: 3, personal: validos.map(persona), reglas: { findesPadres: numero(r.findesPadres, 2, 5), findesAux: numero(r.findesAux, 3, 5), sinPadres: numero(r.sinPadres, 2, 4), extraFinde: r.extraFinde !== false, auxMin } };
+  return { v: 3, personal: validos.map(persona), reglas: { findesPadres: numero(r.findesPadres, 2, 5), findesAux: numero(r.findesAux, 3, 5), sinPadres: numero(r.sinPadres, 2, 4), extraFinde: r.extraFinde !== false, ocDef: typeof r.ocDef === 'string' ? r.ocDef.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_OTRO) : OC_DEFECTO, auxMin } };
 }
 
 export const casasDe = (p) => (p && Array.isArray(p.casas) ? p.casas : []);
@@ -110,7 +111,10 @@ export function diasContinuacion(clave) {
 export function soloDias(base, nuevo, dias) {
   const out = { ...base, dias: { ...base.dias }, notas: { ...(base.notas || {}) } };
   const tur = { ...(base.tur || {}) };
+  const man = new Set(base.ocMan || []);
   for (const d of dias) {
+    if ((nuevo.ocMan || []).includes(d)) man.add(d);
+    else man.delete(d);
     if (nuevo.dias[d]) out.dias[d] = nuevo.dias[d];
     else delete out.dias[d];
     if (nuevo.tur && nuevo.tur[d]) tur[d] = nuevo.tur[d];
@@ -120,6 +124,7 @@ export function soloDias(base, nuevo, dias) {
   }
   if (Object.keys(tur).length) out.tur = tur;
   else delete out.tur;
+  if (Array.isArray(base.ocMan) || Array.isArray(nuevo.ocMan)) out.ocMan = Array.from(man).sort((a, b) => a - b);
   return out;
 }
 
@@ -192,6 +197,7 @@ export function normalizarHorario(h) {
     }
   }
   out.obs = limpiarTexto(h.obs, MAX_OBS);
+  if (Array.isArray(h.ocMan)) out.ocMan = Array.from(new Set(h.ocMan.map(Number).filter((d) => d >= 1 && d <= 31))).sort((a, b) => a - b);
   if (h.tur && typeof h.tur === 'object') {
     let x = out;
     for (const [d, dia] of Object.entries(h.tur)) {
@@ -287,7 +293,7 @@ export function contexto(clave, horario, config) {
     if (!finde(d) && !dd && topeSemana(p) != null && diasSemanaDe(id) >= topeSemana(p)) return topeSemana(p) === 0 ? 'no trabaja entre semana' : `ya tiene ${topeSemana(p)} días entre semana`;
     return '';
   };
-  return { clave, anio, mes, n, wd, revisa, finde, semanaDe, semanas: semanaDe(n) + 1, findes, findeDe, bloque, enVac, donde, pide, falta, faltaRegla, hayPadres, esPadre, findesDe, tope, diasSemanaDe, topeSemana, motivo, nombre, porId, horario, config };
+  return { clave, anio, mes, n, wd, viernesDe, revisa, finde, semanaDe, semanas: semanaDe(n) + 1, findes, findeDe, bloque, enVac, donde, pide, falta, faltaRegla, hayPadres, esPadre, findesDe, tope, diasSemanaDe, topeSemana, motivo, nombre, porId, horario, config };
 }
 
 export function diasDeSemana(ctx, s) {
@@ -473,28 +479,57 @@ function emparejar(puestos, candidatos, costo) {
   return mejorDe.map((i) => (i < 0 ? null : candidatos[i]));
 }
 
+export const idOcDefecto = (config) => idOtro(config && config.reglas && typeof config.reglas.ocDef === 'string' ? config.reglas.ocDef : OC_DEFECTO);
+
+export function diasOcManual(h, config) {
+  if (Array.isArray(h.ocMan)) return new Set(h.ocMan);
+  const auto = new Set([...config.personal.filter((p) => p.oc).map((p) => p.id), idOcDefecto(config)]);
+  const out = new Set();
+  for (const d of Object.keys(h.dias || {}).map(Number)) if (en(h, d, ON_CALL).some((id) => !auto.has(id))) out.add(d);
+  return out;
+}
+
+export function onCallDeRegla(clave, horario, config, anterior) {
+  const ctx = contexto(clave, horario, config);
+  const quienes = activos(config, clave).filter((p) => p.oc);
+  const def = idOcDefecto(config);
+  const ant = partesMes(moverMes(clave, -1));
+  const nAnt = diasDelMes(ant.anio, ant.mes);
+  const out = {};
+  for (let d = 1; d <= ctx.n; d++) {
+    const v = ctx.viernesDe(d);
+    let trabajan;
+    if (v >= 1) trabajan = quienes.filter((p) => ctx.donde(p.id, v));
+    else if (anterior) trabajan = quienes.filter((p) => CASAS.some((c) => en(anterior, nAnt + v, c).includes(p.id)));
+    else continue;
+    const ids = trabajan.filter((p) => !ctx.enVac(p.id, d)).map((p) => p.id);
+    out[d] = ids.length ? ids : def ? [def] : [];
+  }
+  return out;
+}
+
 export function sincronizarOnCall(clave, horario, config, anterior) {
   let h = horario;
-  const quienes = activos(config, clave).filter((p) => p.oc);
-  if (!quienes.length) return h;
-  const ctx = contexto(clave, h, config);
-  const previo = finDeMesAnterior(clave, anterior, config);
-  for (let lunes = 2 - ctx.wd(1); lunes <= ctx.n; lunes += 7) {
-    const dias = [lunes, lunes + 1, lunes + 2, lunes + 3].filter((d) => d >= 1 && d <= ctx.n);
-    if (!dias.length) continue;
-    const antes = [lunes - 3, lunes - 2, lunes - 1];
-    const sabemos = antes.some((d) => d >= 1) || !!anterior;
-    if (!sabemos) continue;
-    for (const p of quienes) {
-      const trabajo = antes.some((d) => d >= 1 && ctx.donde(p.id, d)) || (antes[0] < 1 && previo.quien.has(p.id));
-      for (const d of dias) {
-        const l = en(h, d, ON_CALL);
-        if (trabajo && !l.includes(p.id) && !ctx.enVac(p.id, d)) h = poner(h, d, ON_CALL, [...l, p.id]);
-        if (!trabajo && l.includes(p.id)) h = poner(h, d, ON_CALL, l.filter((x) => x !== p.id));
-      }
-    }
+  const manual = diasOcManual(h, config);
+  const regla = onCallDeRegla(clave, h, config, anterior);
+  for (const [d, ids] of Object.entries(regla)) {
+    if (manual.has(+d)) continue;
+    const ya = en(h, +d, ON_CALL);
+    if (ya.length === ids.length && ya.every((x, i) => x === ids[i])) continue;
+    h = poner(h, +d, ON_CALL, ids);
   }
+  const lista = Array.from(manual).sort((a, b) => a - b);
+  if (!Array.isArray(h.ocMan) || h.ocMan.length !== lista.length || h.ocMan.some((x, i) => x !== lista[i])) h = { ...h, ocMan: lista };
   return h;
+}
+
+export function marcarOcManual(h, dias, manual) {
+  const set = new Set(Array.isArray(h.ocMan) ? h.ocMan : []);
+  for (const d of dias) {
+    if (manual) set.add(d);
+    else set.delete(d);
+  }
+  return { ...h, ocMan: Array.from(set).sort((a, b) => a - b) };
 }
 
 export function armar(clave, horario, config, anterior) {
@@ -668,9 +703,17 @@ export function armar(clave, horario, config, anterior) {
   return { horario: h, nuevos, casas: nuevos.length - calls, calls, extras };
 }
 
+export function bloqueDe(ctx, d, k) {
+  if (k !== ON_CALL) return ctx.bloque(d);
+  const v = ctx.viernesDe(d);
+  const out = [];
+  for (let x = Math.max(1, v); x <= Math.min(ctx.n, v + 6); x++) out.push(x);
+  return out;
+}
+
 export function ponerEnBloque(ctx, d, k, ids, todo) {
   let h = ctx.horario;
-  const dias = todo ? ctx.bloque(d) : [d];
+  const dias = todo ? bloqueDe(ctx, d, k) : [d];
   for (const x of dias) {
     const lista = x === d ? ids : ids.filter((id) => !ctx.enVac(id, x) && (k === ON_CALL || !ctx.donde(id, x) || ctx.donde(id, x) === k));
     h = poner(h, x, k, lista);

@@ -43,7 +43,7 @@ ok(padres.every((p) => ultimo(p.id) !== cd.findes[0].dias.some((d) => cd.donde(p
 ok(padres.every((p) => cd.findesDe(p.id) === 2), 'cada padre de casa 2 fines de semana');
 ok(!P.some((p) => p.tipo !== 'falta' && !/hace un fin de semana más/.test(p.t)), 'sin choques ni reglas rotas (solo el aviso de quién hace un fin de semana más): ' + P.filter((p) => p.tipo !== 'falta').map((p) => p.t).join(' | '));
 console.log('   faltas en diciembre:', P.length, [...new Set(P.map((p) => p.k))].join(', '));
-ok(A.en(r.horario, 1, 'On Call').join() === (ultimo('viviana') ? 'viviana' : '') && A.en(r.horario, 3, 'On Call').join() === A.en(r.horario, 1, 'On Call').join(), 'on call del 1 al 3 de diciembre porque Viviana ' + (ultimo('viviana') ? 'trabajó' : 'no trabajó') + ' el último fin de semana de noviembre');
+ok([1, 2, 3].every((d) => A.en(r.horario, d, 'On Call').join() === (cn.donde('viviana', 27) ? 'viviana' : 'x:Jauna')), 'on call del 1 al 3 de diciembre según si Viviana trabajó el viernes 27 de noviembre (' + (cn.donde('viviana', 27) ? 'trabajó' : 'no trabajó') + ')');
 ok(A.moverMes('2026-12', 1) === '2027-01' && A.moverMes('2027-01', -1) === '2026-12', 'cambio de año');
 const recursos = { normal: fs.readFileSync('node_modules/@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff'), bold: fs.readFileSync('node_modules/@fontsource/dm-sans/files/dm-sans-latin-700-normal.woff') };
 fs.writeFileSync(out + '/Horario diciembre.pdf', await X.generarPdfHorario('2026-12', r.horario, config, PDFLib, fontkit, recursos));

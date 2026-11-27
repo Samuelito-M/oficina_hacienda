@@ -6,6 +6,7 @@ import fontkit from '@pdf-lib/fontkit';
 import pdfjs from '../lib/pdfjs.js';
 import Entrar from '../components/Entrar.jsx';
 import { CASAS } from '../lib/personal.js';
+import { planAccion } from '../lib/accionesHorario.js';
 import { TIPOS, MAX_NOTA_AUS, esFecha, diasEntre, agregarAus, quitarAus, ausenciasDeMes, migrarVac, nombreTipo, cortoTipo, rangoTexto } from '../lib/ausencias.js';
 import { MESES } from '../lib/text.js';
 import { leerConexion, borrarSesion, llamar } from '../lib/ninos.js';
@@ -32,7 +33,6 @@ import {
   contexto,
   diasDeSemana,
   problemas,
-  faltanEnDia,
   copiarAnterior,
   resumirQuitados,
   armar,
@@ -63,7 +63,10 @@ import {
   rangoFinde,
   TURNOS,
   turnoDe,
-  ponerTurnos
+  ponerTurnos,
+  marcarOcManual,
+  diasOcManual,
+  bloqueDe
 } from '../lib/horarioApp.js';
 
 const Cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -119,8 +122,9 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
   const conTurnos = k !== ON_CALL;
   const [verNo, setVerNo] = useState(false);
   const [toda, setToda] = useState(true);
-  const bloque = ctx.bloque(d);
+  const bloque = bloqueDe(ctx, d, k);
   const conBloque = (k === ON_CALL || ctx.finde(d)) && bloque.length > 1;
+  const esManual = k === ON_CALL && diasOcManual(ctx.horario, ctx.config).has(d);
   const todos = activos(ctx.config, ctx.clave);
   const hayOc = todos.some((p) => p.oc);
   const deAqui = (p) => (k === ON_CALL ? !hayOc || p.oc : casasDe(p).includes(k));
@@ -239,12 +243,25 @@ function Elegir({ ctx, d, k, onListo, onCerrar }) {
         <label className="h-toda">
           <input type="checkbox" id="h-todo-bloque" checked={toda} onChange={(e) => setToda(e.target.checked)} />
           <span>
-            {ctx.finde(d) ? 'Poner lo mismo todo el fin de semana' : 'Poner lo mismo de lunes a jueves'}
+            {k === ON_CALL ? 'Poner lo mismo toda la semana de on call' : ctx.finde(d) ? 'Poner lo mismo todo el fin de semana' : 'Poner lo mismo de lunes a jueves'}
             <small>
               del {DIAS_LARGO[ctx.wd(bloque[0])]} {bloque[0]} al {DIAS_LARGO[ctx.wd(bloque[bloque.length - 1])]} {bloque[bloque.length - 1]}
             </small>
           </span>
         </label>
+      )}
+      {k === ON_CALL && (
+        <div className="h-oc-auto">
+          <p className="hint">
+            {esManual ? 'Este día lo pusiste a mano. ' : 'Este día lo puso la app sola. '}
+            La regla: si {ctx.config.personal.filter((p) => p.oc).map((p) => p.n).join(' o ') || 'quien hace on call'} trabaja el viernes, queda de on call de ese viernes al jueves siguiente; si no, {ctx.config.reglas.ocDef || 'nadie'}.
+          </p>
+          {esManual && (
+            <button type="button" className="btn-link" id="h-oc-auto" onClick={() => onListo('auto', conBloque && toda, {})}>
+              Volver a lo automático
+            </button>
+          )}
+        </div>
       )}
       <div className="h-acc">
         <button type="button" className="h-btn" onClick={onCerrar}>
@@ -500,7 +517,12 @@ function Personal({ config, clave, onCambio, onQuitar, onCerrar }) {
             </label>
           ))}
           <h4 className="h-grupo">On call</h4>
-          <p className="hint">Quien tenga marcado “On call” en Trabajadores queda de llamada de lunes a jueves después de cada fin de semana que trabaja. La app lo pone y lo quita sola.</p>
+          <p className="hint">Quien tenga marcado “On call” en Trabajadores (Viviana) queda de llamada del viernes que trabaja hasta el jueves siguiente. Las semanas que no trabaja ese viernes, queda de on call:</p>
+          <label className="h-regla">
+            <span>On call por defecto</span>
+            <input type="text" id="h-r-ocdef" maxLength={40} value={R.ocDef || ''} placeholder="Nadie" aria-label="On call por defecto" onChange={(e) => regla({ ocDef: e.target.value })} />
+          </label>
+          <p className="hint">La app lo pone sola. Si cambias el on call de un día a mano, la app lo respeta y no lo vuelve a cambiar.</p>
           <h4 className="h-grupo">De lunes a jueves</h4>
           <p className="hint">Trabajan todos los auxiliares menos en su día de descanso. Los que sobran van a Casa 2 o de segundo en otra casa.</p>
         </div>
@@ -668,7 +690,8 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
   );
 }
 
-export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true, onVivo }) {
+export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true, onVivo, accion, onAccionHecha }) {
+  const cargadoRef = useRef('');
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
@@ -760,8 +783,19 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       setConfig(cfg);
       setConfigGuardada(d.config && d.config.v === 3 ? J(cfg) : '');
       setBase({ vac: [], fer: h ? h.fer : [] });
-      setHorario(estaVacio(h) ? null : h);
-      setGuardado(h ? firma(h) : null);
+      let final = estaVacio(h) ? null : h;
+      if (final) {
+        const conVac = { ...final, vac: ausenciasDeMes(personalRef.current, cual) };
+        const sync = sincronizarOnCall(cual, conVac, cfg, ant);
+        const nuevo = { ...final, dias: sync.dias, ocMan: sync.ocMan };
+        if (J(nuevo.dias) !== J(final.dias)) {
+          final = nuevo;
+          setTimeout(() => avisar('Completé el on call con la regla: Viviana de viernes a jueves cuando trabaja el viernes; los demás días, el on call por defecto. Revisa y toca Guardar.'), 0);
+        } else if (!Array.isArray(final.ocMan)) final = { ...final, ocMan: sync.ocMan };
+      }
+      setHorario(final);
+      cargadoRef.current = cual;
+      setGuardado(h ? (final && !Array.isArray(h.ocMan) && J(final.dias) === J(h.dias) ? firma(final) : firma(h)) : null);
       setActualizado(d.actualizado || '');
       setAnterior(ant);
       setNuevos([]);
@@ -809,8 +843,8 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   const sucio = sucioMes || sigSucio;
 
   useEffect(() => {
-    if (onVivo) onVivo(estado === 'listo' ? { clave, horario, config, sinGuardar: sucioMes } : { clave, horario: null, config });
-  }, [clave, horario, config, sucioMes, estado]);
+    if (onVivo) onVivo(estado === 'listo' ? { clave, horario, config, anterior, sinGuardar: sucioMes } : { clave, horario: null, config });
+  }, [clave, horario, config, sucioMes, estado, anterior]);
 
   const yaActivo = useRef(activo);
   useEffect(() => {
@@ -896,6 +930,11 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
 
   const guardarConfig = async (cfg) => {
     if (J(cfg) === configGuardada) return;
+    const limpio = normalizarConfig(cfg);
+    if (horario) {
+      const h2 = sincronizarOnCall(clave, horario, limpio, anterior);
+      if (J(h2.dias) !== J(horario.dias)) cambiar(h2);
+    }
     try {
       await llamar(con.url, { accion: 'guardarConfig', config: cfg, token: con.token });
       setConfigGuardada(J(cfg));
@@ -906,6 +945,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
   };
 
   const guardar = async () => {
+    let ok = false;
     setOcupado('guardar');
     try {
       const primera = guardado == null;
@@ -920,6 +960,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       setActualizado(r.actualizado || new Date().toISOString());
       setNuevos([]);
       setNotas([]);
+      ok = true;
       avisar(primera ? `Horario de ${soloMes(clave)} guardado. Si después cambia algo, lo editas aquí y tocas “Actualizar horario”.` : 'Horario actualizado. Acuerdos y Cambio de casa ya pueden usar la versión nueva.');
     } catch (err) {
       if (err.codigo === 'sesion') return salir(err);
@@ -927,6 +968,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     } finally {
       setOcupado('');
     }
+    return ok;
   };
 
   const deshacer = () => {
@@ -995,10 +1037,59 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
     const extra = r.extras && r.extras.length ? ` Para que no falte gente, ${r.extras.map((x) => `${x.n} hace un ${x.total}.º fin de semana (${x.casa}, ${rango(x)})`).join(' y ')}.` : '';
     const falto = quedan.length ? ` No alcanzó la gente para ${quedan.length} ${quedan.length === 1 ? 'espacio' : 'espacios'} (${casasQ.join(', ')}): quedaron marcados en verde para que los revises.` : '';
     if (extra) setNotas((n) => [...n.filter((x) => !x.startsWith('Para que no falte gente')), extra.trim()]);
-    if (desdeCero) avisar(`Armé ${soloMes(clave)} con las reglas.${yEnSig}${extra}${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`);
-    else if (!r.nuevos.length && enSig) avisar(`Completé ${diasSig.length === 1 ? `el ${diasSig[0]}` : `del ${diasSig[0]} al ${diasSig[diasSig.length - 1]}`} de ${mesSig}. Lo nuevo está en color.`);
-    else avisar(r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${extra}${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.');
+    let msg;
+    if (desdeCero) msg = `Armé ${soloMes(clave)} con las reglas.${yEnSig}${extra}${falto} Revisa y toca “${guardado ? 'Actualizar' : 'Guardar'} horario”.`;
+    else if (!r.nuevos.length && enSig) msg = `Completé ${diasSig.length === 1 ? `el ${diasSig[0]}` : `del ${diasSig[0]} al ${diasSig[diasSig.length - 1]}`} de ${mesSig}. Lo nuevo está en color.`;
+    else msg = r.nuevos.length ? `Completé ${r.casas} ${r.casas === 1 ? 'espacio' : 'espacios'}${r.calls ? ' y el on call' : ''}. Lo nuevo está en color.${extra}${falto}${quedan.length ? ' Si quieres que la app reacomode a todos, usa “Volver a armar con las reglas”.' : ''}` : 'No había nadie libre para lo que falta. Toca lo marcado en verde para elegir, o usa “Volver a armar con las reglas”.';
+    avisar(msg);
+    return msg;
   };
+
+  const accionVista = useRef(null);
+  useEffect(() => {
+    if (!accion || accionVista.current === accion.id) return;
+    const fin = (res) => {
+      accionVista.current = accion.id;
+      accion.resolve(res);
+      if (onAccionHecha) onAccionHecha();
+    };
+    const a = accion.a;
+    if (!con.token) return fin({ ok: false, error: 'sesion' });
+    if (a.mes && a.mes !== clave) {
+      if (sucio) return fin({ ok: false, error: 'sucio' });
+      setClave(a.mes);
+      return;
+    }
+    if (estado !== 'listo' || cargadoRef.current !== clave) return;
+    accionVista.current = accion.id;
+    (async () => {
+      const antes = horarioCrudo;
+      try {
+        if (a.tipo === 'guardar') return fin({ ok: await guardar() });
+        if (a.tipo === 'armar') return fin({ ok: true, mensaje: llenar(!horario), antes });
+        if (a.tipo === 'restaurar') {
+          setHorario(a.antes);
+          if (a.aus) setPersonal(quitarAus(personal, a.aus.id, a.aus.x));
+          return fin({ ok: true });
+        }
+        if (!horario && a.tipo !== 'ausencia') return fin({ ok: false, error: 'sin-horario' });
+        const plan = planAccion(a, { clave, horario: horario || { ...horarioVacio(), ...base, vac: vacMes }, config, anterior });
+        if (plan.error) return fin({ ok: false, error: plan.error });
+        let aus = null;
+        if (a.tipo === 'ausencia' && a.dias && a.dias.length) {
+          const iso = (d) => `${clave}-${String(d).padStart(2, '0')}`;
+          const x = { t: a.t || 'otro', de: iso(Math.min(...a.dias)), a: iso(Math.max(...a.dias)), ...(a.nota ? { n: a.nota } : {}) };
+          setPersonal(agregarAus(personal, a.id, x));
+          aus = { id: a.id, x };
+        }
+        if (horario) setHorario(plan.horario);
+        return fin({ ok: true, antes, aus, dias: plan.dias });
+      } catch (err) {
+        console.error(err);
+        return fin({ ok: false, error: 'error' });
+      }
+    })();
+  }, [accion, clave, estado, con.token, horario]);
 
   const subir = async (file) => {
     if (!file) return;
@@ -1491,23 +1582,29 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
               const { d, k, sig } = ventana;
               const libres = (c, x) => ids.filter((id) => !c.enVac(id, x));
               const conTur = (c, h, dias) => (k === ON_CALL ? h : dias.reduce((hh, x) => ponerTurnos(hh, x, k, tur), h));
-              const diasDe = (c) => (todaLaSemana ? c.bloque(d) : [d]);
+              const diasDe = (c) => (todaLaSemana ? bloqueDe(c, d, k) : [d]);
+              const auto = ids === 'auto';
               if (sig) {
-                let h2 = conTur(sigCtx, ponerEnBloque(sigCtx, d, k, ids, todaLaSemana), diasDe(sigCtx));
-                if (k !== ON_CALL) h2 = sincronizarOnCall(claveSig, h2, config, horario);
-                setSig(soloDias(sigCrudo, h2, diasSig));
+                let h2 = auto ? marcarOcManual(sigH, diasDe(sigCtx), false) : conTur(sigCtx, ponerEnBloque(sigCtx, d, k, ids, todaLaSemana), diasDe(sigCtx));
+                if (k === ON_CALL && !auto) h2 = marcarOcManual(h2, diasDe(sigCtx), true);
+                let hm = horario;
                 if (todaLaSemana && cruce && cruce.ini.includes(d) && k !== ON_CALL) {
-                  let hm = horario;
                   for (const x of cruce.fin) hm = ponerTurnos(poner(hm, x, k, libres(ctx, x)), x, k, tur);
-                  cambiar(hm);
+                  cambiar(sincronizarOnCall(clave, hm, config, anterior));
                 }
+                h2 = sincronizarOnCall(claveSig, h2, config, hm);
+                setSig(soloDias(sigCrudo, h2, diasSig));
               } else {
-                const h2 = conTur(ctx, ponerEnBloque(ctx, d, k, ids, todaLaSemana), diasDe(ctx));
-                cambiar(k === ON_CALL ? h2 : sincronizarOnCall(clave, h2, config, anterior));
-                if (todaLaSemana && cruce && cruce.fin.includes(d) && k !== ON_CALL) {
+                let h2 = auto ? marcarOcManual(horario, diasDe(ctx), false) : conTur(ctx, ponerEnBloque(ctx, d, k, ids, todaLaSemana), diasDe(ctx));
+                if (k === ON_CALL && !auto) h2 = marcarOcManual(h2, diasDe(ctx), true);
+                h2 = sincronizarOnCall(clave, h2, config, anterior);
+                cambiar(h2);
+                if (verSig) {
                   let hs = sigH;
-                  for (const x of cruce.ini) hs = ponerTurnos(poner(hs, x, k, libres(sigCtx, x)), x, k, tur);
-                  setSig(soloDias(sigCrudo, hs, diasSig));
+                  if (todaLaSemana && cruce && cruce.fin.includes(d) && k !== ON_CALL) for (const x of cruce.ini) hs = ponerTurnos(poner(hs, x, k, libres(sigCtx, x)), x, k, tur);
+                  hs = sincronizarOnCall(claveSig, hs, config, h2);
+                  const nuevo = soloDias(sigCrudo, hs, diasSig);
+                  if (firma(nuevo) !== firma(sigCrudo)) setSig(nuevo);
                 }
               }
               setVentana(null);

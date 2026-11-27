@@ -26,7 +26,7 @@ import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.30';
+const VERSION = '1.31';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -78,6 +78,28 @@ export default function App() {
   const vivoRef = useRef(null);
   const oficinaRef = useRef({});
   const [horarioMontado, setHorarioMontado] = useState(() => leerTab() === 'horario');
+  const [accionH, setAccionH] = useState(null);
+  const ultimaAccion = useRef(null);
+  const onAccion = (a0) =>
+    new Promise((resolve) => {
+      let a = a0;
+      if (a.tipo === 'deshacer') {
+        const u = ultimaAccion.current;
+        if (!u) return resolve({ ok: false, error: 'nada-que-deshacer' });
+        a = { tipo: 'restaurar', mes: u.mes, antes: u.antes, aus: u.aus };
+      }
+      setHorarioMontado(true);
+      if (location.hash !== '#horario') location.hash = '#horario';
+      setAccionH({
+        id: `${Date.now()}-${Math.random()}`,
+        a,
+        resolve: (res) => {
+          if (res.ok && a.tipo === 'restaurar') ultimaAccion.current = null;
+          else if (res.ok && a.tipo !== 'guardar') ultimaAccion.current = { mes: a.mes, antes: res.antes === undefined ? null : res.antes, aus: res.aus || null };
+          resolve(res);
+        }
+      });
+    });
 
   useEffect(() => {
     const f = () => setTab(leerTab());
@@ -434,7 +456,7 @@ export default function App() {
         {tab === 'control' && <Control personal={personal} setPersonal={setPersonal} nube={nube} avisar={setToast} />}
         {horarioMontado && (
           <div hidden={tab !== 'horario'}>
-            <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} activo={tab === 'horario'} onVivo={(v) => (vivoRef.current = v)} />
+            <Horario personal={personal} setPersonal={setPersonal} avisar={setToast} onConfig={setHorConfig} mesInicial={mesHorario} activo={tab === 'horario'} onVivo={(v) => (vivoRef.current = v)} accion={accionH} onAccionHecha={() => setAccionH(null)} />
           </div>
         )}
         {tab === 'menu' && <Menu menu={menu} resultado={resultadoMenu} dicExtra={dicExtra} setDicExtra={setDicExtra} onMenu={onMenu} onDescargar={onDescargarMenu} generando={generando === 'menu'} />}
@@ -448,7 +470,7 @@ export default function App() {
           </p>
         </div>
       </main>
-      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario}  vivo={vivoRef} tab={tab} oficina={oficinaRef} onWordArchivo={onWord} onMenuArchivo={onMenu} />
+      <Asistente personal={personal} onHorarioApp={onHorarioApp} irAHorario={irAHorario} onAccion={onAccion} vivo={vivoRef} tab={tab} oficina={oficinaRef} onWordArchivo={onWord} onMenuArchivo={onMenu} />
       {toast && (
         <div className="toast" role="status">
           {toast}

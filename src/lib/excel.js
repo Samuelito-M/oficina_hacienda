@@ -35,8 +35,6 @@ export function serialFecha(v) {
   return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000);
 }
 
-const ESTILO = { texto: 0, encabezado: 1, fecha: 2, dinero: 3, total: 4, totalDinero: 5, numero: 0 };
-
 function celda(ref, v, tipo, total) {
   if (v == null || v === '') return '';
   if (tipo === 'fecha') {

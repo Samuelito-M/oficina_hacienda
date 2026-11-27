@@ -12,7 +12,7 @@ import Equipos from '../components/ninos/Equipos.jsx';
 import Album from '../components/ninos/Album.jsx';
 import { sexoDe } from '../lib/equipos.js';
 import Entrar from '../components/Entrar.jsx';
-import { NinosError, leerConexion, guardarUrl, guardarSesion, borrarSesion, borrarUrl, llamar, urlValida, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
+import { NinosError, leerConexion, borrarSesion, borrarUrl, llamar, edad, proximoCumple, cumpleCorto, leerFecha, leerListaExcel } from '../lib/ninos.js';
 
 const normal = (n) => ({ ...n, nacimiento: leerFecha(n.nacimiento) || String(n.nacimiento || '') });
 

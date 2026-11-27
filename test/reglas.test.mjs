@@ -35,10 +35,9 @@ ok(veces('marivid', 'Casa 3') / total('marivid') > 0.7 && veces('yazmira', 'Casa
 const desc = { myriam: 1, mayra: 2, dayanith: 2, marivid: 3, marlene: 3, wendy: 3, yazmira: 4 };
 ok(Object.entries(desc).every(([id, w]) => ![...Array(31)].some((_, i) => ctx.wd(i + 1) === w && ctx.donde(id, i + 1))), 'regla 7: todos descansan su día');
 ok(aux.every((p) => [...Array(31)].every((_, i) => { const d = i + 1; return ctx.finde(d) || !p.dias.includes(ctx.wd(d)) || ctx.donde(p.id, d); })), 'de lunes a jueves trabajan todos los que no descansan');
-const oc = [...Array(31)].map((_, i) => A.en(h, i + 1, 'On Call').join()).map((x, i) => (x ? i + 1 : 0)).filter(Boolean);
-const finV = ctx.findes.filter((f) => f.dias.some((d) => ctx.donde('viviana', d)));
-const esperado = finV.flatMap((f) => [1, 2, 3, 4].map((k) => f.dias[f.dias.length - 1] + k)).filter((d) => d <= 31);
-ok(oc.join() === esperado.join() && [...Array(31)].every((_, i) => ['', 'viviana'].includes(A.en(h, i + 1, 'On Call').join())), 'regla 8: Viviana on call de lunes a jueves después de sus fines de semana: días ' + oc.join(','));
+const ocEsperado = (c, hh, d) => { const v = c.viernesDe(d); return v >= 1 && c.donde('viviana', v) ? 'viviana' : 'x:Jauna'; };
+const malOc = [...Array(31)].map((_, i) => i + 1).filter((d) => ctx.viernesDe(d) >= 1 && A.en(h, d, 'On Call').join() !== ocEsperado(ctx, h, d));
+ok(!malOc.length, 'regla 8: Viviana on call del viernes que trabaja al jueves siguiente; si no, Jauna' + (malOc.length ? ' — mal: ' + malOc.join(',') : ''));
 ok(finde.every((p) => [...Array(31)].every((_, i) => ctx.finde(i + 1) || !ctx.donde(p.id, i + 1)) && ctx.findesDe(p.id) === 3), 'regla 9: Moisés y Magali 3 fines de semana y nunca entre semana');
 ok(ctx.findes.every((f) => C.every((c) => new Set(f.dias.map((d) => A.en(h, d, c).join())).size === 1)), 'regla 10: viernes, sábado y domingo con la misma gente en cada casa');
 ok(ctx.findes.every((f) => C.every((c) => { const l = A.en(h, f.dias[0], c); return ctx.hayPadres(c, f.dias[0]) || l.length === 2 || c === 'Casa 2'; })), 'casa sin padres queda con 2 auxiliares');
@@ -52,9 +51,9 @@ const e = A.armar('2027-01', vacio(), cfg, h); const ce = A.contexto('2027-01', 
 if (process.argv[2] === 'ene') ver('2027-01', e.horario);
 ok(padres.every((p) => (fin(p.id).slice(-1) === 'S') !== ce.findes[0].dias.some((d) => ce.donde(p.id, d))), 'enero: quien trabajó el último fin de semana de diciembre descansa el primero');
 ok(padres.every((p) => ce.findesDe(p.id) <= 2), 'enero (5 fines de semana): padres siguen con máximo 2');
-ok(A.en(e.horario, 4, 'On Call').join() === (ce.donde('viviana', 2) ? 'viviana' : ''), 'enero: on call del lunes 4 según el fin de semana del 1 al 3');
+ok([1, 2, 3, 4, 5, 6, 7].every((d) => A.en(e.horario, d, 'On Call').join() === (ce.donde('viviana', 1) ? 'viviana' : 'x:Jauna')), 'enero: on call del 1 al 7 según el viernes 1');
 const f27 = A.armar('2027-02', vacio(), cfg, e.horario).horario; const cf = A.contexto('2027-02', f27, cfg);
-ok(A.en(f27, 1, 'On Call').join() === (ce.donde('viviana', 31) ? 'viviana' : '') && A.en(f27, 4, 'On Call').join() === A.en(f27, 1, 'On Call').join(), 'febrero empieza lunes: on call del 1 al 4 depende del último fin de semana de enero (' + (ce.donde('viviana', 31) ? 'trabajó' : 'no trabajó') + ')');
+ok([1, 2, 3, 4].every((d) => A.en(f27, d, 'On Call').join() === (ce.donde('viviana', 29) ? 'viviana' : 'x:Jauna')), 'febrero empieza lunes: on call del 1 al 4 depende del viernes 29 de enero (' + (ce.donde('viviana', 29) ? 'trabajó' : 'no trabajó') + ')');
 const extrasE = e.extras.map((x) => x.id);
 ok([...aux, ...finde].every((p) => ce.findesDe(p.id) <= 4 || extrasE.includes(p.id)) && [...aux, ...finde].filter((p) => ce.findesDe(p.id) >= 4).length >= 8, 'enero (5 fines de semana): auxiliares 4, descansan 1, salvo quien la app avisa (' + e.extras.map((x) => x.n).join(', ') + ')');
 console.log('   enero faltas:', A.problemas(ce).filter((p) => p.tipo === 'falta').length, '· otros:', A.problemas(ce).filter((p) => p.tipo !== 'falta').map((p) => p.t).join(' | ') || 'ninguno');
@@ -78,7 +77,17 @@ ok(pm.length >= 1 && /Myriam/.test(pm[0]), 'avisa si pones a alguien donde no de
 const c2 = A.contexto('2026-12', h, cfg);
 ok(c2.motivo('myriam', 8, 'Casa 4') === 'no va a Casa 4' && /descansa los lunes/.test(c2.motivo('myriam', 14, 'Casa 3')), 'motivos en la ventana: ' + c2.motivo('myriam', 8, 'Casa 4') + ' / ' + c2.motivo('myriam', 14, 'Casa 3'));
 // on call manual por bloque
-ok(A.ponerEnBloque(c2, 9, 'On Call', ['tania'], true).dias[7]['On Call'].includes('tania') && !(A.ponerEnBloque(c2, 9, 'On Call', ['tania'], true).dias[11]['On Call'] || []).includes('tania'), 'on call a mano: de lunes a jueves');
+const bo = A.ponerEnBloque(c2, 9, 'On Call', ['tania'], true);
+ok([4, 5, 6, 7, 8, 9, 10].every((d) => A.en(bo, d, 'On Call').join() === 'tania') && A.en(bo, 11, 'On Call').join() !== 'tania', 'on call a mano: la semana de on call (viernes 4 a jueves 10)');
+const bm = A.sincronizarOnCall('2026-12', A.marcarOcManual(bo, [4, 5, 6, 7, 8, 9, 10], true), cfg, null);
+ok([4, 5, 6, 7, 8, 9, 10].every((d) => A.en(bm, d, 'On Call').join() === 'tania'), 'lo que se pone a mano no se borra al sincronizar');
+const ba = A.sincronizarOnCall('2026-12', A.marcarOcManual(bm, [4, 5, 6, 7, 8, 9, 10], false), cfg, null);
+ok([4, 5, 6, 7, 8, 9, 10].every((d) => A.en(ba, d, 'On Call').join() === ocEsperado(c2, h, d)), 'volver a automático pone la regla otra vez');
+const legado = { ...h, dias: { ...h.dias, 15: { ...h.dias[15], 'On Call': ['tania'] } } };
+delete legado.ocMan;
+ok(A.en(A.sincronizarOnCall('2026-12', legado, cfg, null), 15, 'On Call').join() === 'tania', 'un horario viejo con un on call puesto a mano (Tania) no se borra');
+const otroDef = A.sincronizarOnCall('2026-12', h, { ...cfg, reglas: { ...cfg.reglas, ocDef: 'Pedro' } }, null);
+ok([...Array(31)].map((_, i) => i + 1).every((d) => c2.viernesDe(d) < 1 || ocEsperado(c2, h, d) === 'viviana' || A.en(otroDef, d, 'On Call').join() === 'x:Pedro'), 'el on call por defecto se puede cambiar');
 const b = A.ponerEnBloque(c2, 12, 'Casa 2', ['myriam', 'marlene'], true);
 ok([11, 12, 13].every((d) => A.en(b, d, 'Casa 2').join() === 'myriam,marlene') || [11, 12, 13].some((d) => c2.donde('myriam', d)), 'casa en fin de semana: se pone viernes a domingo');
 // baja

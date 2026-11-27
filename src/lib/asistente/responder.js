@@ -1,5 +1,4 @@
 import { ON_CALL, en, activos, normalizarConfig, normalizarHorario, contexto, problemas, esOtro, nombreOtro, turnoDe, conTurno } from '../horarioApp.js';
-import { trabajaEn } from '../personal.js';
 import { edad, proximoCumple } from '../ninos.js';
 import { tallaDe } from '../tallas.js';
 import { GUIA, EJEMPLOS, EJEMPLOS_EN } from './guia.js';
@@ -8,6 +7,7 @@ import { CASAS } from './entender.js';
 import { respuestaAusencias } from './ausenciasChat.js';
 import { ausenciasDeMes } from '../ausencias.js';
 import { findesDePersona, listaNinos, listaPersonal, descargarHorario, conteoFindesChat } from './datosChat.js';
+import { responderAccion } from './accionesChat.js';
 import { equipos, acuerdosDoc, casasDoc, menuDoc, ninosDoc, reporteAus } from './oficinaChat.js';
 
 const ir = (tab, t, extra = {}) => ({ t, ir: tab, ...extra });
@@ -114,7 +114,7 @@ function textos(lang) {
   };
 }
 
-export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga', 'equipos', 'acuerdos_doc', 'pagos_doc', 'casas_doc', 'menu_doc', 'regalos_doc', 'directorio_doc', 'cumple_doc', 'reporte_aus', 'conteo_findes']);
+export const NECESITA_DATOS = new Set(['quien_trabaja', 'oncall', 'descansan', 'dias_persona', 'cambio_casa', 'cumple_nino', 'edad_nino', 'cumples', 'talla_nino', 'casa_nino', 'nino_info', 'ninos_casa', 'estado_horario', 'aus_persona', 'aus_ahora', 'aus_resumen', 'lista_ninos', 'lista_personal', 'horario_descarga', 'equipos', 'acuerdos_doc', 'pagos_doc', 'casas_doc', 'menu_doc', 'regalos_doc', 'directorio_doc', 'cumple_doc', 'reporte_aus', 'conteo_findes', 'accion']);
 
 async function horariosDe(fechas, datos) {
   const meses = Array.from(new Set(fechas.map(claveDe)));
@@ -461,6 +461,8 @@ export async function responder(e, datos) {
       return descargarHorario(e, datos, T);
     case 'conteo_findes':
       return conteoFindesChat(e, datos, T);
+    case 'accion':
+      return responderAccion(e, datos, T);
     case 'aus_persona':
     case 'aus_ahora':
     case 'aus_resumen':

@@ -4,8 +4,7 @@ import HorarioGuardado from '../components/HorarioGuardado.jsx';
 import { SECCIONES, hojasDelFinde } from '../lib/casas.js';
 export { hojasDelFinde };
 import { claveFinde } from '../lib/seleccion.js';
-import { esOtro, nombreOtro } from '../lib/horarioApp.js';
-import { mesDe, mesHoy, trabajaEn } from '../lib/personal.js';
+import { mesHoy, trabajaEn } from '../lib/personal.js';
 import { fechaCorta, viernesADomingo } from '../lib/text.js';
 
 const BAJAR = (

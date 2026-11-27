@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Entrar from '../components/Entrar.jsx';
 import { leerConexion } from '../lib/ninos.js';
 import { MESES } from '../lib/text.js';
-import { descargar, MIME } from '../lib/archivos.js';
+import { descargar } from '../lib/archivos.js';
 import { trabajaEn, mesDe } from '../lib/personal.js';
 import { TIPOS, MAX_NOTA_AUS, esFecha, diasEntre, agregarAus, quitarAus, reporte, reporteCsv, nombreTipo, cortoTipo, rangoTexto } from '../lib/ausencias.js';
 

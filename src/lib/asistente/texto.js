@@ -10,7 +10,7 @@ const PALABRAS_EN = {
   kid: 'ninos', kids: 'ninos', child: 'ninos', children: 'ninos', boy: 'ninos', boys: 'varones', girl: 'ninos', girls: 'ninas', house: 'casa', houses: 'casas', home: 'inicio',
   build: 'armar', make: 'hacer', create: 'crear', generate: 'generar', fill: 'llenar', copy: 'copiar', change: 'cambiar', swap: 'cambiar', replace: 'reemplazar', move: 'mover', assign: 'asignar',
   save: 'guardar', update: 'actualizar', undo: 'deshacer', download: 'descargar', print: 'imprimir', delete: 'borrar', erase: 'borrar', clear: 'borrar', remove: 'quitar',
-  older: 'older', younger: 'younger', weekends: 'findes', give: 'dame', show: 'muestrame', print: 'imprimir', assistants: 'auxiliares', parents: 'padres', employees: 'empleados',
+  older: 'older', younger: 'younger', weekends: 'findes', give: 'dame', show: 'muestrame', assistants: 'auxiliares', parents: 'padres',
   can: 'puedes', helper: 'ayudante',
   volunteer: 'voluntario', volunteers: 'voluntario', substitute: 'reemplazo', another: 'otra',
   only: 'solo', someone: 'alguien', somebody: 'alguien',
