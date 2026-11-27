@@ -38,6 +38,23 @@ const casos = [
   ['arma el horario de enero', { tipo: 'armar' }],
   ['deshaz eso', { tipo: 'deshacer' }],
   ['put Wendy on PM every day', { tipo: 'turno', id: 'wendy', turno: 'pm' }],
+  ['pon el 25 como feriado', { tipo: 'feriado' }],
+  ['quiero que el 25 sea feriado', { tipo: 'feriado' }],
+  ['necesito que pongas el 25 como feriado', { tipo: 'feriado' }],
+  ['haz feriado el 25', { tipo: 'feriado' }],
+  ['25 feriado', { tipo: 'feriado' }],
+  ['the 25th is a holiday', { tipo: 'feriado' }],
+  ['quita el feriado del 25', { tipo: 'quitar_feriado' }],
+  ['dale vacaciones a Mayra del 20 al 24', { tipo: 'ausencia', id: 'mayra', t: 'vac' }],
+  ['que Wendy sea AM', { tipo: 'turno', id: 'wendy', turno: 'am' }],
+  ['Mayra no trabaja el 15', { tipo: 'quitar', id: 'mayra' }],
+  ['Wendy cubre a Mayra el 15', { tipo: 'reemplazar', id: 'mayra', id2: 'wendy' }],
+  ['el 15 Wendy en vez de Mayra', { tipo: 'reemplazar', id: 'mayra', id2: 'wendy' }],
+  ['Wendy va a casa 3 el 15', { tipo: 'poner', id: 'wendy', casa: 'Casa 3' }],
+  ['que Jauna esté de on call el 20', { tipo: 'poner', id: 'x:Jauna', casa: 'On Call' }],
+  ['anota el 24: cena navideña', { tipo: 'nota', texto: 'cena navideña' }],
+  ['arma diciembre', { tipo: 'armar' }],
+  ['pon a la gente bonito en el horario', { tipo: 'no-entendi' }],
   ['remove Mayra from the schedule on the 15th', { tipo: 'quitar', id: 'mayra' }]
 ];
 for (const [q, esp] of casos) {
@@ -46,7 +63,7 @@ for (const [q, esp] of casos) {
   const bien = e.tipo === 'accion' && Object.entries(esp).every(([k, v]) => a[k] === v);
   ok(bien, `“${q}” → ${e.tipo === 'accion' ? JSON.stringify(a) : e.tipo}`);
 }
-for (const q of ['¿quién trabaja el 15?', '¿cómo pongo AM a alguien?', 'cuántos fines trabaja Wendy', '¿Wendy trabaja AM?', 'dame el horario de diciembre', 'cuántas vacaciones tomó Mayra', 'dame 2 equipos de niños', 'que turno tiene wendy']) {
+for (const q of ['¿el 25 es feriado?', '¿qué feriados hay en diciembre?', 'haz 2 equipos de niños', 'pon el menú', '¿Mayra no trabaja el 15?', '¿Jauna está de on call el 20?', '¿quién trabaja el 15?', '¿cómo pongo AM a alguien?', 'cuántos fines trabaja Wendy', '¿Wendy trabaja AM?', 'dame el horario de diciembre', 'cuántas vacaciones tomó Mayra', 'dame 2 equipos de niños', 'que turno tiene wendy']) {
   const e = ent(q);
   ok(e.tipo !== 'accion', `“${q}” no es una orden (${e.tipo})`);
 }

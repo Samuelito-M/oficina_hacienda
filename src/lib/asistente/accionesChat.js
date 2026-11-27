@@ -16,15 +16,16 @@ export const bajo = (t) =>
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[¿?¡!]/g, ' ')
+    .replace(/\b(\d{1,2})(st|nd|rd|th|ro|do|vo|to)\b/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
 
-const VERBO_PONER = /\b(pon|ponle|ponla|ponlo|ponme|poner|ponga|pongan|agrega|agregale|agregar|anade|anadele|anadir|mete|metele|meter|asigna|asignale|asignar|marca|marcale|marcar|deja|dejale|dejar|put|add|assign|set|mark|make)\b/;
-const VERBO_QUITAR = /\b(quita|quitale|quitar|quitala|quitalo|saca|sacale|sacar|sacala|sacalo|borra|borrale|borrar|elimina|eliminar|eliminala|eliminalo|remove|delete|take)\b/;
-const VERBO_CAMBIAR = /\b(cambia|cambiale|cambiar|reemplaza|reemplazar|reemplazala|reemplazalo|sustituye|sustituir|swap|replace|change)\b/;
+const VERBO_PONER = /\b(dale|dales|darle|dele|des|pon|ponle|ponla|ponlo|ponme|poner|ponerle|ponerla|ponerlo|ponga|pongan|pongas|pongamos|pongale|ponles|agregue|agregues|agreguen|agrega|agregale|agregar|anades|anada|metas|meta|asignes|asigne|marques|marque|marquen|registra|registrar|registre|registres|anota|anotar|anote|anotes|apunta|apuntar|apunte|haz|hazlo|hacer|haga|hagas|deje|dejes|agrega|agregale|agregar|anade|anadele|anadir|mete|metele|meter|asigna|asignale|asignar|marca|marcale|marcar|deja|dejale|dejar|put|add|assign|set|mark|make)\b/;
+const VERBO_QUITAR = /\b(quites|quite|quiten|quitarle|saques|saque|borres|borre|elimines|elimine|quita|quitale|quitar|quitala|quitalo|saca|sacale|sacar|sacala|sacalo|borra|borrale|borrar|elimina|eliminar|eliminala|eliminalo|remove|delete|take)\b/;
+const VERBO_CAMBIAR = /\b(cambies|cambie|cambien|cambiarle|reemplaces|reemplace|cambia|cambiale|cambiar|reemplaza|reemplazar|reemplazala|reemplazalo|sustituye|sustituir|swap|replace|change)\b/;
 const VERBO_INTER = /\b(intercambia|intercambiar|intercambialos|swap)\b/;
-const VERBO_MOVER = /\b(mueve|mover|muevela|muevelo|pasa|pasala|pasalo|pasar|manda|mandala|mandalo|move)\b/;
-const PIDE = /^(por favor |porfa |sam |jr |sam jr |oye |puedes |podrias |me puedes |me podrias |quiero que |necesito que |please |can you |could you )+/;
+const VERBO_MOVER = /\b(muevas|mueva|pases|pase|mueve|mover|muevela|muevelo|pasa|pasala|pasalo|pasar|manda|mandala|mandalo|move)\b/;
+const PIDE = /^(por favor |porfa |sam |jr |sam jr |oye |hola |puedes |podrias |me puedes |me podrias |quiero que |quisiera que |necesito que |me gustaria que |hay que |tienes que |please |can you |could you |i want you to |i need you to )+/;
 
 function turnoDeTexto(s) {
   if (/\b(a\.?\s?m\.?|am)\b|\b(en|por|de) la manana\b|\bmorning\b|\bmatutino\b/.test(s)) return 'am';
@@ -56,7 +57,9 @@ function nombreSuelto(original, s) {
 
 export function entenderAccion(texto, { trabajadores = [], ocDef = '' } = {}) {
   const s0 = bajo(texto);
-  const s = s0.replace(PIDE, '').replace(/\bon call\b/g, 'oncall');
+  let s = s0.replace(PIDE, '').replace(/\bon call\b/g, 'oncall');
+  const nombres1 = trabajadores.map((p) => bajo(p.n).split(' ')[0]).filter((x) => x.length >= 3);
+  if (/^que\s/.test(s) && (nombres1.some((n) => s.startsWith(`que ${n}`)) || /^que (el|la|los|las) \d/.test(s) || /^que [a-z]+ (este|sea|quede|trabaje|vaya|cubra|haga) /.test(s))) s = s.slice(4);
   if (/^(como|donde|cuando|cuantos|cuantas|que|cual|quien|quienes|por que|porque|how|where|when|what|who|which|why)\b/.test(s)) return null;
   if (/\b(como|donde)\s+(se|puedo|hago|le|lo|la)\b/.test(s)) return null;
   const pregunta = /\?/.test(String(texto));
@@ -75,11 +78,15 @@ export function entenderAccion(texto, { trabajadores = [], ocDef = '' } = {}) {
 
   if (/^(guarda|guardar|guardalo|guardala|save)\b/.test(s) && !trab.length && !/\bnota\b/.test(s)) return { tipo: 'guardar' };
   if (/^(deshaz|deshacer|undo)\b/.test(s)) return { tipo: 'deshacer' };
-  if (/^(arma|armar|armame|completa|completar|completame|llena|llenar|haz|hazme|genera|crea|build|make|fill)\b/.test(s) && /\bhorario\b|\bschedule\b|\bmes\b/.test(s) && !trab.length && !/\b(equipos?|grupos?|acuerdos?|menu|documento|pdf|excel)\b/.test(s)) return { tipo: 'armar' };
+  if (/^(arma|armar|armame|completa|completar|completame|llena|llenar|haz|hazme|genera|crea|build|make|fill)\b/.test(s) && (/\bhorario\b|\bschedule\b|\bmes\b/.test(s) || /^(arma|armar|armame|completa|completar|llena|haz|hazme|build|make|fill)\s+(el\s+de\s+|de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/.test(s)) && !trab.length && !/\b(equipos?|grupos?|acuerdos?|menu|documento|pdf|excel)\b/.test(s)) return { tipo: 'armar' };
 
-  if (/\b(feriado|feriados|festivo|holiday)\b/.test(s) && (algunVerbo || /\bes feriado\b/.test(s)) && !trab.length) return { tipo: /\b(ya no es|no es)\b/.test(s) || verboQuitar ? 'quitar_feriado' : 'feriado' };
+  const conFecha = /\b\d{1,2}\b|\bhoy\b|\bmanana\b|\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|\btoday\b|\btomorrow\b/.test(s);
+  if (/\b(feriados?|festivos?|holidays?|dia libre para todos)\b/.test(s) && !trab.length && (algunVerbo || conFecha || /\b(es|sea|sera|son|sean|seran|is|be)\s+(an?\s+)?(un\s+)?(dia\s+)?(feriado|festivo|holiday)/.test(s))) {
+    const quitar = verboQuitar || /\b(ya no es|no es|no sea|no sera|no son|ya no son)\b/.test(s);
+    return { tipo: quitar ? 'quitar_feriado' : 'feriado' };
+  }
 
-  if (/\bnota\b|\bnote\b/.test(s) && (algunVerbo || /^(escribe|anota)\b/.test(s)) && !/\bnota\b.*\bniño|\bnino\b/.test(s)) {
+  if (((/\bnota\b|\bnote\b/.test(s) && (algunVerbo || /^(escribe|anota|apunta)\b/.test(s))) || (/^(anota|apunta|escribe|anade|agrega)\b/.test(s) && conFecha && /:/.test(String(texto)) && !trab.length)) && !/\bnino\b/.test(s)) {
     if (verboQuitar) return { tipo: 'quitar_nota' };
     const crudo = String(texto);
     const m = crudo.match(/:\s*(.+)$/) || crudo.match(/\bque diga\s+(.+)$/i) || crudo.match(/\bdiciendo\s+(.+)$/i) || crudo.match(/["“”]([^"“”]+)["“”]/);
@@ -93,6 +100,31 @@ export function entenderAccion(texto, { trabajadores = [], ocDef = '' } = {}) {
     const crudo = String(texto);
     const m = crudo.match(/:\s*(.+)$/);
     return { tipo: 'ausencia', id: trab[0].id, t: ausTipo, nota: m ? m[1].trim().slice(0, 60) : '' };
+  }
+
+  const cubre = s.match(/\b(?:cubre|cubra|cubrir|cubrira|reemplaza|reemplace|reemplazara)\s+a\s+([a-z]+)/);
+  if (trab.length >= 2 && cubre && !verboCambiar) {
+    const x = trab.find((t) => bajo(t.n).startsWith(cubre[1].slice(0, 3)));
+    const y = trab.find((t) => t !== x);
+    if (x && y) return { tipo: 'reemplazar', id: x.id, id2: y.id, casa: oncall ? ON_CALL : casa };
+  }
+  if (trab.length >= 2 && !algunVerbo && /\b(en lugar de|en vez de|instead of)\b/.test(s)) {
+    const enLugar = s.match(/\b(?:en lugar de|en vez de|instead of)\s+(?:a\s+)?([a-z]+)/);
+    const x = trab.find((t) => bajo(t.n).startsWith(enLugar[1].slice(0, 3)));
+    const y = trab.find((t) => t !== x);
+    if (x && y) return { tipo: 'reemplazar', id: x.id, id2: y.id, casa: oncall ? ON_CALL : casa };
+  }
+  if (trab.length === 1 && !algunVerbo && !pregunta && conFecha && /\b(ya no|no)\s+(trabaja|trabajara|va a trabajar|trabajar|entra|va)\b/.test(s) && !casa) return { tipo: 'quitar', id: trab[0].id, casa: oncall ? ON_CALL : '' };
+  if (trab.length === 1 && !algunVerbo && !pregunta && conFecha && casa && /\b(va|vaya|ira|esta|este|estara|queda|quede|trabaja|trabaje|trabajara|entra|entre)\s+(a|en)\s+(la\s+)?casa\b/.test(s)) return { tipo: 'poner', id: trab[0].id, casa, turno };
+  if (oncall && !algunVerbo && !pregunta && conFecha && !/\b(automatic|automatico|regla|por defecto)\b/.test(s)) {
+    const m = s.match(/^([a-z]+(?:\s+(?!esta\b|este\b|estara\b|queda\b|quede\b|va\b|de\b|en\b)[a-z]+)?)\s+(?:esta\s+|este\s+|estara\s+|queda\s+|quede\s+|va\s+)?(?:de\s+|en\s+)?oncall\b/);
+    if (trab.length === 1 && m && bajo(trab[0].n).startsWith(m[1].split(' ')[0].slice(0, 3))) return { tipo: 'poner', id: trab[0].id, casa: ON_CALL, solo: true };
+    if (!trab.length && m && !/^(el|la|los|las|hoy|manana|quien|que)\b/.test(m[1])) {
+      const crudo = String(texto);
+      const i = bajo(crudo).indexOf(m[1]);
+      const n = (i >= 0 ? crudo.slice(i, i + m[1].length) : m[1]).replace(/\b\w/g, (c) => c.toUpperCase());
+      return { tipo: 'poner', id: idOtro(n), casa: ON_CALL, solo: true };
+    }
   }
 
   if (verboInter && trab.length >= 2) return { tipo: 'intercambiar', id: trab[0].id, id2: trab[1].id, casa: oncall ? ON_CALL : casa };
@@ -125,6 +157,15 @@ export function entenderAccion(texto, { trabajadores = [], ocDef = '' } = {}) {
   }
   if (trab.length === 0 && verboQuitar && /\bhorario\b/.test(s) && !/\bnota|feriado|oncall\b/.test(s)) return null;
   return null;
+}
+
+export function pareceOrden(texto, { trabajadores = [] } = {}) {
+  const s = bajo(texto).replace(PIDE, '').replace(/\bon call\b/g, 'oncall');
+  if (/\?/.test(String(texto)) || /^(como|donde|cuando|cuantos|cuantas|que|cual|quien|quienes|por que|how|where|when|what|who|which|why)\b/.test(s)) return false;
+  const inicio = s.split(' ').slice(0, 2).join(' ');
+  if (![VERBO_PONER, VERBO_QUITAR, VERBO_CAMBIAR, VERBO_INTER, VERBO_MOVER].some((re) => re.test(inicio))) return false;
+  if (/\b(equipos?|grupos?|acuerdos?|pagos?|menu|ninos?|ninas?|lista|pdf|excel|word|documentos?|regalos?|directorio|cumple|fotos?|album|tallas?|personal y reglas)\b/.test(s)) return false;
+  return /\b(casa|horario|oncall|feriados?|nota|turno|am|pm|manana|tarde|dia|dias|semana|fin de semana|finde)\b/.test(s) || buscarNombres(texto, trabajadores, 'n').length > 0;
 }
 
 function anioPara(mes, hoy) {
@@ -262,8 +303,20 @@ export async function responderAccion(e, datos, T) {
   const E = T.E;
   const a0 = e.accion;
   const hoy = datos.hoy || new Date();
-  const mes = mesDeTexto(e.texto || '', hoy) || datos.mesHorario || datos.mesActivo || claveDe(hoy);
+  let mes = mesDeTexto(e.texto || '', hoy) || datos.mesHorario || datos.mesActivo || '';
+  if (!mes) {
+    mes = claveDe(hoy);
+    const ds = diasDeTexto(e.texto || '', mes, hoy);
+    if (ds && ds.length && ds.every((d) => d < hoy.getDate())) mes = claveDe(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1));
+  }
   const ir = { t: E ? 'See the Schedule' : 'Ver el Horario', ir: 'horario', mes };
+  if (a0.tipo === 'no-entendi')
+    return {
+      partes: [
+        { p: E ? 'I want to do it, but I didn’t understand exactly what to change. Write it like one of these:' : 'Quiero hacerlo, pero no entendí bien qué cambiar. Escríbelo como alguno de estos:' },
+        { ul: E ? ['Put Wendy on AM every day she works', 'Remove Mayra on the 15th', 'Replace Mayra with Wendy on the 20th', 'Put Wendy in Casa 2 from the 14th to the 17th', 'Put Jauna on call on the 22nd', 'Mark the 25th as a holiday', 'Put a note on the 24th: Christmas dinner'] : ['Pon a Wendy AM todos los días que le toca', 'Quita a Mayra del 15', 'Cambia a Mayra por Wendy el 20', 'Pon a Wendy en Casa 2 del 14 al 17', 'Pon a Jauna de on call el 22', 'Marca el 25 como feriado', 'Pon una nota el 24: cena de Navidad'] }
+      ]
+    };
   if (a0.tipo === 'falta-nombre') return { partes: [{ p: E ? 'Who should I put? Write the name, for example: “put Jauna on call on the 20th”.' : '¿A quién pongo? Escribe el nombre, por ejemplo: “pon a Jauna de on call el 20”.' }] };
   if (a0.tipo === 'guardar') return { partes: [{ p: E ? `Saving the schedule for **${NOMBRE_MES(mes, E)}**…` : `Guardando el horario de **${NOMBRE_MES(mes, E)}**…` }], hacerYa: { tipo: 'guardar', mes } };
   if (a0.tipo === 'deshacer') return { partes: [{ p: E ? 'Undoing the last thing I changed…' : 'Deshaciendo lo último que cambié…' }], hacerYa: { tipo: 'deshacer', mes } };
@@ -274,6 +327,12 @@ export async function responderAccion(e, datos, T) {
   if (a0.tipo === 'armar') {
     if (tiene) return { partes: [{ p: E ? `**${NOMBRE_MES(mes, E)}** already has a schedule. I’ll fill in only the empty spots, following the rules.` : `**${NOMBRE_MES(mes, E)}** ya tiene horario. Voy a completar solo lo que falta, con las reglas.` }], hacerYa: { tipo: 'armar', mes } };
     return { partes: [{ p: E ? `Building the schedule for **${NOMBRE_MES(mes, E)}** with the rules…` : `Armando el horario de **${NOMBRE_MES(mes, E)}** con las reglas…` }], hacerYa: { tipo: 'armar', mes } };
+  }
+  if (!tiene && (a0.tipo === 'feriado' || a0.tipo === 'quitar_feriado')) {
+    const ds = diasDeTexto(e.texto || '', mes, hoy);
+    if (!ds) return { partes: [{ p: E ? 'Which day? For example: “mark the 25th as a holiday”.' : '¿Qué día? Por ejemplo: “marca el 25 como feriado”.' }] };
+    const txt = a0.tipo === 'feriado' ? (E ? `I marked ${rangos(ds)} as a holiday (${NOMBRE_MES(mes, E)}). It’s saved, so when you build the schedule nobody will be placed as if it were a normal day.` : `Marqué ${ds.length === 1 ? `el ${ds[0]}` : `los días ${rangos(ds)}`} como feriado (${NOMBRE_MES(mes, E)}). Ya quedó guardado; cuando armes el horario la app lo tiene en cuenta.`) : E ? `I removed the holiday on ${rangos(ds)}.` : `Quité el feriado ${ds.length === 1 ? `del ${ds[0]}` : `de los días ${rangos(ds)}`}.`;
+    return { partes: [{ p: txt }], hacerYa: { tipo: a0.tipo, mes, dias: ds, sinHorario: true } };
   }
   if (!tiene && a0.tipo !== 'ausencia') return { partes: [{ p: E ? `**${NOMBRE_MES(mes, E)}** doesn’t have a schedule yet. Want me to build it? Say “build the schedule for ${NOMBRE_MES(mes, E)}”.` : `**${NOMBRE_MES(mes, E)}** todavía no tiene horario. ¿Lo armo? Dime “arma el horario de ${MESES[partesMes(mes).mes]}”.` }], botones: [ir] };
   const dias = diasDeTexto(e.texto || '', mes, hoy);

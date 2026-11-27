@@ -26,7 +26,7 @@ import { quitadas } from './lib/ausencias.js';
 
 const TABS = ['inicio', 'acuerdos', 'casas', 'menu', 'ninos', 'horario', 'control'];
 const DIC_KEY = 'oficina-hacienda.diccionario.v1';
-const VERSION = '1.31';
+const VERSION = '1.32';
 
 function leerTab() {
   const h = (location.hash || '').replace('#', '');
@@ -86,7 +86,7 @@ export default function App() {
       if (a.tipo === 'deshacer') {
         const u = ultimaAccion.current;
         if (!u) return resolve({ ok: false, error: 'nada-que-deshacer' });
-        a = { tipo: 'restaurar', mes: u.mes, antes: u.antes, aus: u.aus };
+        a = { tipo: 'restaurar', mes: u.mes, antes: u.antes, aus: u.aus, ferAntes: u.ferAntes };
       }
       setHorarioMontado(true);
       if (location.hash !== '#horario') location.hash = '#horario';
@@ -95,7 +95,7 @@ export default function App() {
         a,
         resolve: (res) => {
           if (res.ok && a.tipo === 'restaurar') ultimaAccion.current = null;
-          else if (res.ok && a.tipo !== 'guardar') ultimaAccion.current = { mes: a.mes, antes: res.antes === undefined ? null : res.antes, aus: res.aus || null };
+          else if (res.ok && a.tipo !== 'guardar') ultimaAccion.current = { mes: a.mes, antes: res.antes === undefined ? null : res.antes, aus: res.aus || null, ferAntes: res.ferAntes || null };
           resolve(res);
         }
       });

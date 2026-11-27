@@ -692,6 +692,7 @@ function Vacaciones({ ctx, personal, setPersonal, onCambio, onCerrar }) {
 
 export default function Horario({ personal, setPersonal, avisar, onConfig, mesInicial, activo = true, onVivo, accion, onAccionHecha }) {
   const cargadoRef = useRef('');
+  const sucioRef = useRef(false);
   const [con, setCon] = useState(leerConexion);
   const [mensajeClave, setMensajeClave] = useState('');
   const hoy = new Date();
@@ -767,6 +768,10 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       const c = conRef.current;
       const r = await llamar(c.url, { accion: 'horario', mes: cual, token: c.token });
       if (cual !== claveRef.current) return;
+      if (cargadoRef.current === cual && sucioRef.current) {
+        setEstado('listo');
+        return;
+      }
       const d = r.datos || {};
       const h = normalizarHorario(d.horario);
       const legado = h ? h.vac.filter((v) => !v.t) : [];
@@ -841,6 +846,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
 
   const sucioMes = horarioCrudo != null && firma(horarioCrudo) !== guardado;
   const sucio = sucioMes || sigSucio;
+  sucioRef.current = sucio;
 
   useEffect(() => {
     if (onVivo) onVivo(estado === 'listo' ? { clave, horario, config, anterior, sinGuardar: sucioMes } : { clave, horario: null, config });
@@ -859,7 +865,7 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
       else setClave(mesInicial);
       return;
     }
-    if (volvio && !sucio && con.token && estado !== 'cargando') cargar(claveRef.current);
+    if (volvio && !sucio && !accion && con.token && estado !== 'cargando') cargar(claveRef.current);
   }, [activo, mesInicial]);
 
   const guardarFeriados = async (fer) => {
@@ -1068,9 +1074,20 @@ export default function Horario({ personal, setPersonal, avisar, onConfig, mesIn
         if (a.tipo === 'guardar') return fin({ ok: await guardar() });
         if (a.tipo === 'armar') return fin({ ok: true, mensaje: llenar(!horario), antes });
         if (a.tipo === 'restaurar') {
+          if (a.ferAntes && !horario) {
+            await guardarFeriados(a.ferAntes);
+            return fin({ ok: true });
+          }
           setHorario(a.antes);
           if (a.aus) setPersonal(quitarAus(personal, a.aus.id, a.aus.x));
           return fin({ ok: true });
+        }
+        if (!horario && (a.tipo === 'feriado' || a.tipo === 'quitar_feriado')) {
+          const set = new Set(base.fer || []);
+          for (const d of a.dias || []) a.tipo === 'feriado' ? set.add(d) : set.delete(d);
+          const antesFer = base.fer || [];
+          await guardarFeriados(Array.from(set).sort((x, y) => x - y));
+          return fin({ ok: true, antes: null, ferAntes: antesFer, dias: a.dias || [] });
         }
         if (!horario && a.tipo !== 'ausencia') return fin({ ok: false, error: 'sin-horario' });
         const plan = planAccion(a, { clave, horario: horario || { ...horarioVacio(), ...base, vac: vacMes }, config, anterior });

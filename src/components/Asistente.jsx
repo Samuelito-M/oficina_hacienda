@@ -358,7 +358,7 @@ export default function Asistente({ personal, onHorarioApp, irAHorario, onAccion
     const atras = { t: E ? 'Undo' : 'Deshacer', hacer: { tipo: 'deshacer', mes: a.mes } };
     if (a.tipo === 'armar') return decir(res.mensaje || (E ? 'Done.' : 'Listo.'), { botones: [guardar, atras] });
     const partes = r ? r.partes : [{ p: a.listo || (E ? 'Done ✅.' : 'Listo ✅.') }];
-    setMensajes((m) => [...m, { de: 'bot', r: { partes, botones: [guardar, atras, ver] } }]);
+    setMensajes((m) => [...m, { de: 'bot', r: { partes, botones: a.sinHorario ? [atras, ver] : [guardar, atras, ver] } }]);
   };
 
   const boton = (b) => {

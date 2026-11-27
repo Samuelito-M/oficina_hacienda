@@ -1,7 +1,7 @@
 import { plano, palabras, parecida, distancia, tiene, VACIAS } from './texto.js';
 import { leerFechas } from './fechas.js';
 import { GUIA } from './guia.js';
-import { entenderAccion } from './accionesChat.js';
+import { entenderAccion, pareceOrden } from './accionesChat.js';
 
 const CASAS = ['Casa 1', 'Casa 2', 'Casa 3', 'Casa 4', 'Casa Esther'];
 
@@ -100,6 +100,7 @@ export function entender(texto, { hoy = new Date(), trabajadores = [], ninos = [
   if (exacto) return { tipo: 'guia', articulo: exacto, otros: [] };
   const accion = entenderAccion(texto, { trabajadores });
   if (accion) return { tipo: 'accion', accion, texto, fechas: null, casa: '', trabajadores: [], ninos: [] };
+  if (pareceOrden(texto, { trabajadores })) return { tipo: 'accion', accion: { tipo: 'no-entendi' }, texto, fechas: null, casa: '', trabajadores: [], ninos: [] };
   let fechas = leerFechas(texto, hoy, idioma);
   if (/\bcuant|\bhow many\b|\bconteo\b|\bweekend count\b/i.test(plano(texto)) && /\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/i.test(String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
     fechas = leerFechas(String(texto).replace(/\bfin(es)? de semana\b|\bfindes?\b|\bweekends?\b/gi, ' '), hoy, idioma);
